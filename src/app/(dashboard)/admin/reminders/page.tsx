@@ -48,7 +48,7 @@ export default function AdminRemindersPage() {
           <section className="rounded-lg border bg-white p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">Automated Reminders</h3>
+                <h2 className="font-semibold">Automated Reminders</h2>
                 <p className="text-sm text-muted-foreground">
                   When enabled, patients who haven&apos;t opened their message
                   will automatically receive follow-up reminders via the same
@@ -59,6 +59,7 @@ export default function AdminRemindersPage() {
                 type="button"
                 role="switch"
                 aria-checked={enabled}
+                aria-label="Toggle automated reminders"
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   enabled ? "bg-purple-600" : "bg-gray-200"
                 }`}
@@ -75,15 +76,15 @@ export default function AdminRemindersPage() {
 
           {/* Configuration */}
           <section className={`rounded-lg border bg-white p-6 transition-opacity ${!enabled ? "pointer-events-none opacity-40" : ""}`}>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Default Configuration</h3>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Default Configuration</h2>
             <p className="mb-6 text-sm text-muted-foreground">
               These defaults apply to all outgoing messages. Individual users can override these at send time.
             </p>
             <div className="grid gap-6 sm:grid-cols-2">
               <div>
-                <Label>Max Reminders Per Message</Label>
+                <Label htmlFor="reminder-max">Max Reminders Per Message</Label>
                 <Select value={String(defaultMax)} onValueChange={(v) => setDefaultMax(Number(v))}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="reminder-max" className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0">0 (disabled)</SelectItem>
                     <SelectItem value="1">1 reminder</SelectItem>
@@ -96,8 +97,8 @@ export default function AdminRemindersPage() {
                 <p className="mt-1 text-xs text-muted-foreground">Reminders stop when the patient opens the message or the max is reached.</p>
               </div>
               <div>
-                <Label>Hours Between Reminders</Label>
-                <Input type="number" min={1} max={168} value={intervalHours} onChange={(e) => setIntervalHours(Number(e.target.value))} className="mt-1" />
+                <Label htmlFor="reminder-interval">Hours Between Reminders</Label>
+                <Input id="reminder-interval" type="number" min={1} max={168} value={intervalHours} onChange={(e) => setIntervalHours(Number(e.target.value))} className="mt-1" />
                 <p className="mt-1 text-xs text-muted-foreground">Minimum 1 hour, maximum 168 hours (7 days). Default is 24.</p>
               </div>
             </div>
@@ -105,7 +106,7 @@ export default function AdminRemindersPage() {
 
           {/* How it works */}
           <section className="rounded-lg border bg-white p-6">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">How Reminders Work</h3>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">How Reminders Work</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
               <div className="flex items-start gap-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">1</span>
@@ -128,7 +129,7 @@ export default function AdminRemindersPage() {
 
           {/* Reminder message preview */}
           <section className="rounded-lg border bg-white p-6">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Reminder Message Preview</h3>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Reminder Message Preview</h2>
             <div className="space-y-3">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">SMS</p>

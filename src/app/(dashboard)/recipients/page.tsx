@@ -62,6 +62,7 @@ export default function RecipientsPage() {
             placeholder="Search by email or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search recipients by email or phone"
             className="h-12 border-2 border-gray-200 bg-gray-50 text-base focus:border-purple-400 focus:bg-white"
           />
 
@@ -91,10 +92,19 @@ export default function RecipientsPage() {
                   {recipients.map((r) => (
                     <TableRow
                       key={r.contact}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`View details for ${r.contact}`}
                       className={`cursor-pointer ${
                         selectedContact === r.contact ? "bg-purple-50" : ""
                       }`}
                       onClick={() => setSelectedContact(r.contact)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedContact(r.contact);
+                        }
+                      }}
                     >
                       <TableCell className="font-mono text-sm font-medium">
                         {r.contact}

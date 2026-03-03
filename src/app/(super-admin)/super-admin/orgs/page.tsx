@@ -86,7 +86,7 @@ export default function SuperAdminOrgsPage() {
 
         {/* Toolbar */}
         <div className="mb-4 flex items-center justify-between gap-4">
-          <Input placeholder="Search organizations..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
+          <Input placeholder="Search organizations..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search organizations" className="max-w-xs" />
           <Button size="sm" onClick={() => setShowCreate(true)}>Create Organization</Button>
         </div>
 
@@ -109,7 +109,7 @@ export default function SuperAdminOrgsPage() {
                 <TableRow key={org.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: org.primaryColor ?? "#888" }} />
+                      <div className="h-3 w-3 rounded-full" aria-hidden="true" style={{ backgroundColor: org.primaryColor ?? "#888" }} />
                       <span className="font-medium">{org.name}</span>
                     </div>
                   </TableCell>
@@ -198,17 +198,17 @@ function CreateOrgDialog({ open, onClose, onCreate }: { open: boolean; onClose: 
       <DialogContent>
         <DialogHeader><DialogTitle>Create Organization</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
-          <div><Label>Organization Name</Label><Input value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Metro Family Practice" /></div>
+          <div><Label htmlFor="create-org-name">Organization Name</Label><Input id="create-org-name" value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Metro Family Practice" /></div>
           <div>
-            <Label>Slug</Label>
-            <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="metro-family" className="font-mono" />
+            <Label htmlFor="create-org-slug">Slug</Label>
+            <Input id="create-org-slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="metro-family" className="font-mono" />
             <p className="mt-1 text-xs text-muted-foreground">URL-safe identifier. Auto-generated from name.</p>
           </div>
           <div>
-            <Label>Primary Color</Label>
+            <Label htmlFor="create-org-color">Primary Color</Label>
             <div className="mt-1 flex items-center gap-3">
-              <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="h-10 w-14 cursor-pointer rounded border p-1" />
-              <Input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="font-mono" maxLength={7} />
+              <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} aria-label="Pick primary color" className="h-10 w-14 cursor-pointer rounded border p-1" />
+              <Input id="create-org-color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="font-mono" maxLength={7} />
             </div>
           </div>
         </div>

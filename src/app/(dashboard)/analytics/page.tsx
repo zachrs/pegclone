@@ -80,9 +80,9 @@ export default function AnalyticsPage() {
         <div className="grid gap-6 md:grid-cols-2">
           {/* Channel breakdown */}
           <div className="rounded-lg border bg-white p-5">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               By Channel
-            </h3>
+            </h2>
             <div className="space-y-3">
               <ChannelBar label="Email" count={stats.emailCount} total={stats.totalSent} color="#7c3aed" />
               <ChannelBar label="SMS" count={stats.smsCount} total={stats.totalSent} color="#059669" />
@@ -94,9 +94,9 @@ export default function AnalyticsPage() {
 
           {/* Summary stats */}
           <div className="rounded-lg border bg-white p-5">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Summary
-            </h3>
+            </h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Unique recipients</dt>
@@ -125,9 +125,9 @@ export default function AnalyticsPage() {
 
           {/* Top content */}
           <div className="rounded-lg border bg-white p-5 md:col-span-2">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Most Frequently Sent Content
-            </h3>
+            </h2>
             {stats.topContent.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {data === null ? "Loading..." : "No messages sent yet."}
@@ -151,9 +151,9 @@ export default function AnalyticsPage() {
 
           {/* Recent activity */}
           <div className="rounded-lg border bg-white p-5 md:col-span-2">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Recent Activity
-            </h3>
+            </h2>
             <div className="space-y-2">
               {stats.recentMessages.slice(0, 8).map((msg) => (
                 <div key={msg.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
@@ -215,8 +215,8 @@ function ChannelBar({ label, count, total, color }: { label: string; count: numb
 }
 
 function StatusDot({ status, opened }: { status: string; opened: boolean }) {
-  if (opened) return <span className="flex items-center gap-1 text-xs text-green-600"><span className="h-2 w-2 rounded-full bg-green-500" />Opened</span>;
-  if (status === "failed") return <span className="flex items-center gap-1 text-xs text-red-600"><span className="h-2 w-2 rounded-full bg-red-500" />Failed</span>;
-  if (status === "delivered") return <span className="flex items-center gap-1 text-xs text-yellow-600"><span className="h-2 w-2 rounded-full bg-yellow-500" />Not opened</span>;
-  return <span className="flex items-center gap-1 text-xs text-gray-400"><span className="h-2 w-2 rounded-full bg-gray-300" />{status}</span>;
+  if (opened) return <span className="flex items-center gap-1 text-xs text-green-600"><span className="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />Opened</span>;
+  if (status === "failed") return <span className="flex items-center gap-1 text-xs text-red-600"><span className="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />Failed</span>;
+  if (status === "delivered") return <span className="flex items-center gap-1 text-xs text-yellow-600"><span className="h-2 w-2 rounded-full bg-yellow-500" aria-hidden="true" />Not opened</span>;
+  return <span className="flex items-center gap-1 text-xs text-gray-500"><span className="h-2 w-2 rounded-full bg-gray-500" aria-hidden="true" />{status}</span>;
 }

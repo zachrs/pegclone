@@ -72,7 +72,7 @@ export default function AdminSettingsPage() {
         <div className="mx-auto max-w-2xl space-y-8">
           {/* Message Templates */}
           <section className="rounded-lg border bg-white p-6">
-            <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Message Templates</h3>
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Message Templates</h2>
             <p className="mb-6 text-sm text-muted-foreground">
               Customize the outbound SMS and email copy. Supported tokens:{" "}
               <code className="rounded bg-gray-100 px-1 text-xs">[Organization Name]</code> and{" "}
@@ -80,19 +80,19 @@ export default function AdminSettingsPage() {
             </p>
             <div className="space-y-4">
               <div>
-                <Label>SMS Template</Label>
-                <Input value={sms} onChange={(e) => setSms(e.target.value)} className="mt-1 font-mono text-sm" />
+                <Label htmlFor="tpl-sms">SMS Template</Label>
+                <Input id="tpl-sms" value={sms} onChange={(e) => setSms(e.target.value)} className="mt-1 font-mono text-sm" />
                 <p className="mt-1 text-xs text-muted-foreground">
                   Default: <span className="font-mono">[Organization Name] has sent you a message: [link]</span>
                 </p>
               </div>
               <div>
-                <Label>Email Subject</Label>
-                <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} className="mt-1 font-mono text-sm" />
+                <Label htmlFor="tpl-email-subject">Email Subject</Label>
+                <Input id="tpl-email-subject" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} className="mt-1 font-mono text-sm" />
               </div>
               <div>
-                <Label>Email Body</Label>
-                <textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)} rows={4} className="mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                <Label htmlFor="tpl-email-body">Email Body</Label>
+                <textarea id="tpl-email-body" value={emailBody} onChange={(e) => setEmailBody(e.target.value)} rows={4} className="mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none" />
               </div>
             </div>
             <div className="mt-4 flex items-center justify-end">
@@ -102,12 +102,12 @@ export default function AdminSettingsPage() {
 
           {/* Delivery Settings */}
           <section className="rounded-lg border bg-white p-6">
-            <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Delivery Settings</h3>
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Delivery Settings</h2>
             <p className="mb-6 text-sm text-muted-foreground">Configure how messages are delivered and when links expire.</p>
             <div className="space-y-4">
               <div>
-                <Label>Link Expiration (days of inactivity)</Label>
-                <Input type="number" min={1} max={365} value={linkExpDays} onChange={(e) => setLinkExpDays(Number(e.target.value))} className="mt-1 max-w-[200px]" />
+                <Label htmlFor="link-exp-days">Link Expiration (days of inactivity)</Label>
+                <Input id="link-exp-days" type="number" min={1} max={365} value={linkExpDays} onChange={(e) => setLinkExpDays(Number(e.target.value))} className="mt-1 max-w-[200px]" />
                 <p className="mt-1 text-xs text-muted-foreground">Patient links expire after this many days of inactivity. Default: 30.</p>
               </div>
               <div className="flex items-center gap-2">
@@ -125,12 +125,12 @@ export default function AdminSettingsPage() {
 
           {/* Team Folder Management */}
           <section className="rounded-lg border bg-white p-6">
-            <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Team Folder Management</h3>
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Team Folder Management</h2>
             <p className="mb-6 text-sm text-muted-foreground">
               Publish personal folders to make them visible to all users in your organization.
             </p>
             <div className="mb-6">
-              <h4 className="mb-2 text-xs font-semibold text-muted-foreground">Published Team Folders</h4>
+              <h3 className="mb-2 text-xs font-semibold text-muted-foreground">Published Team Folders</h3>
               {teamFolders.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No team folders yet.</p>
               ) : (
@@ -148,7 +148,7 @@ export default function AdminSettingsPage() {
               )}
             </div>
             <div>
-              <h4 className="mb-2 text-xs font-semibold text-muted-foreground">Personal Folders (can be published)</h4>
+              <h3 className="mb-2 text-xs font-semibold text-muted-foreground">Personal Folders (can be published)</h3>
               {personalFolders.length === 0 ? (
                 <p className="text-sm text-muted-foreground">All personal folders are already published, or none exist.</p>
               ) : (

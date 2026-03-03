@@ -103,6 +103,7 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
                       height="20"
                       viewBox="0 0 20 20"
                       fill="none"
+                      aria-hidden="true"
                     >
                       <path
                         d="M5 10l3.5 3.5L15 7"
@@ -118,6 +119,7 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
                       height="20"
                       viewBox="0 0 20 20"
                       fill="none"
+                      aria-hidden="true"
                     >
                       <path
                         d="M6 2h6l4 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"
@@ -132,6 +134,7 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
                       height="20"
                       viewBox="0 0 20 20"
                       fill="none"
+                      aria-hidden="true"
                     >
                       <path
                         d="M8 4H6a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-2"
@@ -155,7 +158,7 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
                   <p className="text-sm font-medium text-gray-900">
                     {item.title}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-500">
                     {viewed
                       ? "Viewed — tap to view again"
                       : item.type === "pdf"
@@ -170,7 +173,8 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
                   height="16"
                   viewBox="0 0 16 16"
                   fill="none"
-                  className="shrink-0 text-gray-300"
+                  className="shrink-0 text-gray-500"
+                  aria-hidden="true"
                 >
                   <path
                     d="M6 4l4 4-4 4"
@@ -186,7 +190,7 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
         </div>
 
         {/* Footer */}
-        <footer className="mt-8 border-t bg-white px-5 py-6 text-center text-xs text-gray-400">
+        <footer className="mt-8 border-t bg-white px-5 py-6 text-center text-xs text-gray-500">
           <p>
             Sent by{" "}
             <span className="font-medium text-gray-500">
@@ -213,7 +217,7 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
               </a>
             </p>
           )}
-          <p className="mt-4 text-gray-300">
+          <p className="mt-4 text-gray-500">
             Powered by Patient Education Genius
           </p>
         </footer>

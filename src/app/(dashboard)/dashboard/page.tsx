@@ -53,7 +53,7 @@ export default function DashboardPage() {
               title="Browse Library"
               description="Search 40,000+ patient education items or your org uploads"
               icon={
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
                   <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
                 </svg>
@@ -68,7 +68,7 @@ export default function DashboardPage() {
                   : "Select items from the library first"
               }
               icon={
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M22 2L11 13" />
                   <path d="M22 2l-7 20-4-9-9-4 20-7z" />
                 </svg>
@@ -80,7 +80,7 @@ export default function DashboardPage() {
               title="View Analytics"
               description="Track delivery rates, opens, and engagement trends"
               icon={
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="18" y1="20" x2="18" y2="10" />
                   <line x1="12" y1="20" x2="12" y2="4" />
                   <line x1="6" y1="20" x2="6" y2="14" />
@@ -92,9 +92,9 @@ export default function DashboardPage() {
           {/* Recent activity */}
           <div className="rounded-lg border bg-white p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 Recent Messages
-              </h3>
+              </h2>
               <Link
                 href="/recipients"
                 className="text-sm text-purple-600 hover:underline"
@@ -153,7 +153,7 @@ export default function DashboardPage() {
           {failed > 0 && (
             <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-red-500" />
+                <div className="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />
                 <p className="text-sm font-medium text-red-700">
                   {failed} message{failed !== 1 ? "s" : ""} failed to deliver
                 </p>
@@ -243,7 +243,7 @@ function StatusDot({
   if (opened) {
     return (
       <span className="flex items-center gap-1 text-xs text-green-600">
-        <span className="h-2 w-2 rounded-full bg-green-500" />
+        <span className="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />
         Opened
       </span>
     );
@@ -251,7 +251,7 @@ function StatusDot({
   if (status === "failed") {
     return (
       <span className="flex items-center gap-1 text-xs text-red-600">
-        <span className="h-2 w-2 rounded-full bg-red-500" />
+        <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />
         Failed
       </span>
     );
@@ -259,14 +259,14 @@ function StatusDot({
   if (status === "delivered") {
     return (
       <span className="flex items-center gap-1 text-xs text-yellow-600">
-        <span className="h-2 w-2 rounded-full bg-yellow-500" />
+        <span className="h-2 w-2 rounded-full bg-yellow-500" aria-hidden="true" />
         Not opened
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-1 text-xs text-gray-400">
-      <span className="h-2 w-2 rounded-full bg-gray-300" />
+    <span className="flex items-center gap-1 text-xs text-gray-500">
+      <span className="h-2 w-2 rounded-full bg-gray-500" aria-hidden="true" />
       {status}
     </span>
   );

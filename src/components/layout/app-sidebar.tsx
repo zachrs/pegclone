@@ -72,63 +72,84 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV_ITEMS.filter((item) =>
-                can(userRole, isAdmin, item.permission)
-              ).map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(item.href)}
-                  >
-                    <Link href={item.href}>{item.label}</Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {(isAdmin || userRole === "super_admin") && (
+        <nav aria-label="Main navigation">
           <SidebarGroup>
-            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {ADMIN_ITEMS.map((item) => (
-                  <SidebarMenuItem key={item.href}>
+                {NAV_ITEMS.filter((item) =>
+                  can(userRole, isAdmin, item.permission)
+                ).map((item) => {
+                  const isActive = pathname.startsWith(item.href);
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link
+                          href={item.href}
+                          aria-current={isActive ? "page" : undefined}
+                        >
+                          {item.label}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {(isAdmin || userRole === "super_admin") && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Administration</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {ADMIN_ITEMS.map((item) => {
+                    const isActive = pathname.startsWith(item.href);
+                    return (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton asChild isActive={isActive}>
+                          <Link
+                            href={item.href}
+                            aria-current={isActive ? "page" : undefined}
+                          >
+                            {item.label}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+
+          {userRole === "super_admin" && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Platform</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname.startsWith(item.href)}
+                      isActive={pathname.startsWith("/super-admin")}
                     >
-                      <Link href={item.href}>{item.label}</Link>
+                      <Link
+                        href="/super-admin/orgs"
+                        aria-current={
+                          pathname.startsWith("/super-admin")
+                            ? "page"
+                            : undefined
+                        }
+                      >
+                        Organizations
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {userRole === "super_admin" && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Platform</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith("/super-admin")}
-                  >
-                    <Link href="/super-admin/orgs">Organizations</Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+        </nav>
       </SidebarContent>
 
       <SidebarFooter className="p-4">

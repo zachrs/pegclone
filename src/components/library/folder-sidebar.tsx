@@ -60,7 +60,9 @@ export function FolderSidebar() {
         <DialogContent>
           <DialogHeader><DialogTitle>Create New Folder</DialogTitle></DialogHeader>
           <div className="flex flex-col gap-4">
+            <label htmlFor="new-folder-name" className="sr-only">Folder name</label>
             <Input
+              id="new-folder-name"
               placeholder="Folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}

@@ -131,7 +131,7 @@ export default function AdminUsersPage() {
 
         {/* Toolbar */}
         <div className="mb-4 flex items-center justify-between gap-4">
-          <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
+          <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search users" className="max-w-xs" />
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleExportCSV}>Export CSV</Button>
             <Button size="sm" onClick={() => setShowCreate(true)}>Create User</Button>
@@ -258,11 +258,11 @@ function CreateUserDialog({ open, onClose, onCreate }: { open: boolean; onClose:
       <DialogContent>
         <DialogHeader><DialogTitle>Create User</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
-          <div><Label>Full Name</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Jane Smith" /></div>
-          <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane.smith@org.com" /></div>
-          <div><Label>Title (optional)</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="OB/GYN, MD" /></div>
+          <div><Label htmlFor="create-fullname">Full Name</Label><Input id="create-fullname" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Jane Smith" /></div>
+          <div><Label htmlFor="create-email">Email</Label><Input id="create-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane.smith@org.com" /></div>
+          <div><Label htmlFor="create-title">Title (optional)</Label><Input id="create-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="OB/GYN, MD" /></div>
           <div>
-            <Label>Role</Label>
+            <Label htmlFor="create-role">Role</Label>
             <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -297,9 +297,9 @@ function EditUserDialog({ user, onClose, onSave }: { user: OrgUser; onClose: () 
         <DialogHeader><DialogTitle>Edit User — {user.fullName}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
           <div><Label className="text-muted-foreground">Email</Label><p className="font-mono text-sm">{user.email}</p></div>
-          <div><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="OB/GYN, MD" /></div>
+          <div><Label htmlFor="edit-title">Title</Label><Input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="OB/GYN, MD" /></div>
           <div>
-            <Label>Role</Label>
+            <Label htmlFor="edit-role">Role</Label>
             <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>

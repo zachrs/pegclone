@@ -141,7 +141,7 @@ export function SendWizard() {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-12 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
             <path d="M8 16l5.5 5.5L24 10" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
@@ -187,7 +187,7 @@ export function SendWizard() {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-12 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M22 2L11 13" />
             <path d="M22 2l-7 20-4-9-9-4 20-7z" />
           </svg>
@@ -223,10 +223,14 @@ export function SendWizard() {
 
       {/* Mode tabs */}
       <div className="mb-6">
-        <div className="flex gap-1 rounded-lg border bg-gray-50 p-1">
+        <div className="flex gap-1 rounded-lg border bg-gray-50 p-1" role="tablist" aria-label="Send mode">
           {([{ key: "single", label: "Single Recipient" }, { key: "bulk", label: "Bulk CSV" }, { key: "qr", label: "QR Code" }] as const).map((tab) => (
             <button
               key={tab.key}
+              role="tab"
+              id={`tab-${tab.key}`}
+              aria-selected={mode === tab.key}
+              aria-controls={`tabpanel-${tab.key}`}
               className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === tab.key ? "bg-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               onClick={() => setMode(tab.key)}
             >
@@ -238,10 +242,10 @@ export function SendWizard() {
 
       {/* Single recipient mode */}
       {mode === "single" && (
-        <>
+        <div role="tabpanel" id="tabpanel-single" aria-labelledby="tab-single">
           <div className="mb-6">
-            <label className="mb-2 block text-sm font-medium">Email or Mobile Phone (U.S. Only)</label>
-            <Input placeholder="example@email.com, 888-555-5555" value={contact} onChange={(e) => setContact(e.target.value)} className="h-12 border-2 border-gray-200 text-base focus:border-purple-400" />
+            <label htmlFor="send-contact" className="mb-2 block text-sm font-medium">Email or Mobile Phone (U.S. Only)</label>
+            <Input id="send-contact" placeholder="example@email.com, 888-555-5555" value={contact} onChange={(e) => setContact(e.target.value)} className="h-12 border-2 border-gray-200 text-base focus:border-purple-400" />
             {contact.trim() && isValid && <p className="mt-1.5 text-xs text-muted-foreground">Will send via {isEmail ? "email" : "SMS"}</p>}
             {contact.trim() && !isValid && <p className="mt-1.5 text-xs text-red-500">Enter a valid email address or phone number</p>}
           </div>
@@ -251,21 +255,21 @@ export function SendWizard() {
               {sending ? "Sending..." : "Send"}
             </Button>
           </div>
-        </>
+        </div>
       )}
 
       {/* Bulk CSV mode */}
       {mode === "bulk" && (
-        <>
+        <div role="tabpanel" id="tabpanel-bulk" aria-labelledby="tab-bulk">
           {!bulkFile ? (
             <div className="mb-6">
-              <label className="mb-2 block text-sm font-medium">Upload CSV File</label>
+              <label htmlFor="csv-upload" className="mb-2 block text-sm font-medium">Upload CSV File</label>
               <div
                 className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 py-10 transition-colors hover:border-purple-300"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file && file.name.endsWith(".csv")) handleBulkUpload(file); }}
               >
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                   <polyline points="14 2 14 8 20 8" />
                   <line x1="12" y1="18" x2="12" y2="12" />
@@ -315,12 +319,12 @@ export function SendWizard() {
               {sending ? "Sending..." : `Send to ${Math.max(0, bulkPreview.length - 1)} Recipients`}
             </Button>
           </div>
-        </>
+        </div>
       )}
 
       {/* QR Code mode */}
       {mode === "qr" && (
-        <>
+        <div role="tabpanel" id="tabpanel-qr" aria-labelledby="tab-qr">
           <div className="mb-6 rounded-lg border bg-gray-50 p-4">
             <h3 className="font-medium">How QR Code Sending Works</h3>
             <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
@@ -339,7 +343,7 @@ export function SendWizard() {
               {sending ? "Generating..." : "Generate QR Code"}
             </Button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -349,7 +353,7 @@ function SuccessScreen({ title, subtitle, onReset }: { title: string; subtitle: 
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-12 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
           <path d="M8 16l5.5 5.5L24 10" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
