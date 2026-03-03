@@ -217,7 +217,22 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
               </a>
             </p>
           )}
-          <p className="mt-4 text-gray-500">
+          <div className="mt-4 border-t pt-4">
+            <p className="text-gray-400">
+              If you no longer wish to receive these messages, reply <strong>STOP</strong> to the text message or{" "}
+              <button
+                className="underline transition-colors hover:text-gray-600"
+                style={{ color }}
+                onClick={() => {
+                  // In production: POST to /api/viewer/opt-out with the access token
+                  alert("You have been unsubscribed. You will no longer receive messages from " + message.org.name + ".");
+                }}
+              >
+                click here to unsubscribe
+              </button>.
+            </p>
+          </div>
+          <p className="mt-4 text-gray-400">
             Powered by Patient Education Genius
           </p>
         </footer>

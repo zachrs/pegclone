@@ -22,6 +22,8 @@ export interface LibraryFolder {
   icon?: string;
 }
 
+export type ViewMode = "grid" | "list";
+
 interface LibraryState {
   folders: LibraryFolder[];
   orgContent: OrgContentItem[];
@@ -29,10 +31,12 @@ interface LibraryState {
   activeFolder: string | null;
   searchQuery: string;
   activeTab: "all" | "system" | "org";
+  viewMode: ViewMode;
 
   setActiveFolder: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setActiveTab: (tab: "all" | "system" | "org") => void;
+  setViewMode: (mode: ViewMode) => void;
   toggleFavorite: (id: string) => void;
   addFolder: (name: string) => void;
   renameFolder: (id: string, name: string) => void;
@@ -123,10 +127,19 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   activeFolder: null,
   searchQuery: "",
   activeTab: "all",
+  viewMode: (typeof window !== "undefined"
+    ? (localStorage.getItem("peg-view-mode") as ViewMode) ?? "grid"
+    : "grid") as ViewMode,
 
   setActiveFolder: (id) => set({ activeFolder: id }),
   setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setViewMode: (mode) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("peg-view-mode", mode);
+    }
+    set({ viewMode: mode });
+  },
 
   toggleFavorite: (id) =>
     set((state) => {

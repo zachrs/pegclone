@@ -110,7 +110,12 @@ export default function SuperAdminOrgsPage() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div className="h-3 w-3 rounded-full" aria-hidden="true" style={{ backgroundColor: org.primaryColor ?? "#888" }} />
-                      <span className="font-medium">{org.name}</span>
+                      <a
+                        href={`/super-admin/orgs/${org.id}`}
+                        className="font-medium text-blue-600 hover:underline"
+                      >
+                        {org.name}
+                      </a>
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm text-muted-foreground">{org.slug}</TableCell>
