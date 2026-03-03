@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminStore } from "@/lib/hooks/use-admin-store";
 import { useLibraryStore } from "@/lib/hooks/use-library-store";
+import { toast } from "sonner";
 
 export default function AdminSettingsPage() {
   const {
@@ -36,16 +37,13 @@ export default function AdminSettingsPage() {
     deliverySettings.optOutFooter
   );
 
-  const [savedSection, setSavedSection] = useState<string | null>(null);
-
   const saveTemplates = () => {
     updateMessageTemplates({
       sms: sms.trim(),
       emailSubject: emailSubject.trim(),
       emailBody: emailBody.trim(),
     });
-    setSavedSection("templates");
-    setTimeout(() => setSavedSection(null), 2000);
+    toast.success("Message templates saved");
   };
 
   const saveDelivery = () => {
@@ -53,8 +51,7 @@ export default function AdminSettingsPage() {
       linkExpirationDays: linkExpDays,
       optOutFooter,
     });
-    setSavedSection("delivery");
-    setTimeout(() => setSavedSection(null), 2000);
+    toast.success("Delivery settings saved");
   };
 
   const personalFolders = folders.filter((f) => f.type === "personal");
@@ -115,10 +112,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
-            <div className="mt-4 flex items-center justify-end gap-3">
-              {savedSection === "templates" && (
-                <span className="text-sm text-green-600">Saved!</span>
-              )}
+            <div className="mt-4 flex items-center justify-end">
               <Button onClick={saveTemplates} size="sm">
                 Save Templates
               </Button>
@@ -169,10 +163,7 @@ export default function AdminSettingsPage() {
               </p>
             </div>
 
-            <div className="mt-4 flex items-center justify-end gap-3">
-              {savedSection === "delivery" && (
-                <span className="text-sm text-green-600">Saved!</span>
-              )}
+            <div className="mt-4 flex items-center justify-end">
               <Button onClick={saveDelivery} size="sm">
                 Save Delivery Settings
               </Button>

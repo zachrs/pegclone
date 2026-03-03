@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminStore } from "@/lib/hooks/use-admin-store";
+import { toast } from "sonner";
 
 export default function AdminBrandingPage() {
   const { branding, updateBranding } = useAdminStore();
@@ -17,8 +18,6 @@ export default function AdminBrandingPage() {
   const [phone, setPhone] = useState(branding.phone ?? "");
   const [address, setAddress] = useState(branding.address ?? "");
   const [website, setWebsite] = useState(branding.website ?? "");
-  const [saved, setSaved] = useState(false);
-
   const handleSave = () => {
     updateBranding({
       name: name.trim(),
@@ -28,8 +27,7 @@ export default function AdminBrandingPage() {
       address: address.trim() || null,
       website: website.trim() || null,
     });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    toast.success("Branding settings saved");
   };
 
   return (
@@ -200,10 +198,7 @@ export default function AdminBrandingPage() {
           </section>
 
           {/* Save */}
-          <div className="flex items-center justify-end gap-3">
-            {saved && (
-              <span className="text-sm text-green-600">Settings saved!</span>
-            )}
+          <div className="flex items-center justify-end">
             <Button onClick={handleSave} disabled={!name.trim()}>
               Save Branding
             </Button>

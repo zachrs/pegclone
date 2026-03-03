@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { useAdminStore, type OrgUser } from "@/lib/hooks/use-admin-store";
 import type { UserRole } from "@/lib/db/types";
+import { toast } from "sonner";
 
 export default function AdminUsersPage() {
   const { users, addUser, updateUser, deactivateUser, reactivateUser } =
@@ -185,7 +186,7 @@ export default function AdminUsersPage() {
                           variant="ghost"
                           size="sm"
                           className="text-red-600 hover:text-red-700"
-                          onClick={() => deactivateUser(u.id)}
+                          onClick={() => { deactivateUser(u.id); toast.success(`${u.fullName} deactivated`); }}
                         >
                           Deactivate
                         </Button>
@@ -194,7 +195,7 @@ export default function AdminUsersPage() {
                           variant="ghost"
                           size="sm"
                           className="text-green-600 hover:text-green-700"
-                          onClick={() => reactivateUser(u.id)}
+                          onClick={() => { reactivateUser(u.id); toast.success(`${u.fullName} reactivated`); }}
                         >
                           Reactivate
                         </Button>
@@ -222,7 +223,7 @@ export default function AdminUsersPage() {
       <CreateUserDialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreate={addUser}
+        onCreate={(params) => { addUser(params); toast.success(`User ${params.fullName} created`); }}
       />
 
       {/* Edit dialog */}
@@ -233,6 +234,7 @@ export default function AdminUsersPage() {
           onSave={(updates) => {
             updateUser(editUser.id, updates);
             setEditUser(null);
+            toast.success(`User ${editUser.fullName} updated`);
           }}
         />
       )}

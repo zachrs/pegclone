@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAdminStore } from "@/lib/hooks/use-admin-store";
+import { toast } from "sonner";
 
 export default function AdminRemindersPage() {
   const { reminders, updateReminders } = useAdminStore();
@@ -21,16 +22,13 @@ export default function AdminRemindersPage() {
   const [intervalHours, setIntervalHours] = useState(
     reminders.defaultIntervalHours
   );
-  const [saved, setSaved] = useState(false);
-
   const handleSave = () => {
     updateReminders({
       enabled,
       defaultMax,
       defaultIntervalHours: intervalHours,
     });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    toast.success("Reminder settings saved");
   };
 
   return (
@@ -189,10 +187,7 @@ export default function AdminRemindersPage() {
           </section>
 
           {/* Save */}
-          <div className="flex items-center justify-end gap-3">
-            {saved && (
-              <span className="text-sm text-green-600">Settings saved!</span>
-            )}
+          <div className="flex items-center justify-end">
             <Button onClick={handleSave}>Save Reminder Settings</Button>
           </div>
         </div>

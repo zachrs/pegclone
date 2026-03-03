@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOrgsStore } from "@/lib/hooks/use-orgs-store";
+import { toast } from "sonner";
 
 export default function SuperAdminOrgsPage() {
   const { orgs, createOrg, overrideSmsThrottle } = useOrgsStore();
@@ -152,7 +153,7 @@ export default function SuperAdminOrgsPage() {
                         variant="ghost"
                         size="sm"
                         className="text-blue-600 hover:text-blue-700"
-                        onClick={() => overrideSmsThrottle(org.id)}
+                        onClick={() => { overrideSmsThrottle(org.id); toast.success(`SMS throttle unlocked for ${org.name}`); }}
                       >
                         Unlock SMS
                       </Button>
@@ -187,7 +188,7 @@ export default function SuperAdminOrgsPage() {
       <CreateOrgDialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreate={createOrg}
+        onCreate={(params) => { createOrg(params); toast.success(`Organization "${params.name}" created`); }}
       />
     </>
   );

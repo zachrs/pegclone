@@ -21,6 +21,11 @@ import { UserMenu } from "./user-menu";
 
 const NAV_ITEMS = [
   {
+    label: "Dashboard",
+    href: "/dashboard",
+    permission: "library.view" as const,
+  },
+  {
     label: "Library",
     href: "/library",
     permission: "library.view" as const,
