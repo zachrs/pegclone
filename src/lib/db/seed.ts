@@ -16,7 +16,7 @@ import * as schema from "@/drizzle/schema";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
-const connectionString = process.env.DATABASE_URL ?? "postgres://peg:peg@localhost:5432/peg";
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || "postgres://peg:peg@localhost:5432/peg";
 const sql = postgres(connectionString, { max: 1 });
 const db = drizzle(sql, { schema });
 
