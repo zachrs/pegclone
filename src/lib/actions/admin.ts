@@ -123,8 +123,20 @@ export async function updateBranding(params: {
   name: string;
   primaryColor: string;
   secondaryColor?: string | null;
+  phone?: string;
+  address?: string;
+  website?: string;
 }) {
   const session = await requireSession();
+
+  // Merge contact info into settings JSONB
+  const [org] = await db
+    .select({ settings: organizations.settings })
+    .from(organizations)
+    .where(eq(organizations.id, session.user.tenantId))
+    .limit(1);
+
+  const currentSettings = org?.settings ?? {};
 
   await db
     .update(organizations)
@@ -132,6 +144,14 @@ export async function updateBranding(params: {
       name: params.name,
       primaryColor: params.primaryColor,
       secondaryColor: params.secondaryColor ?? null,
+      settings: {
+        ...currentSettings,
+        contact: {
+          phone: params.phone ?? "",
+          address: params.address ?? "",
+          website: params.website ?? "",
+        },
+      },
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, session.user.tenantId));
@@ -233,6 +253,53 @@ export async function updateMessageTemplates(params: {
           sms: params.sms,
           email_subject: params.emailSubject,
           email_body: params.emailBody,
+        },
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(organizations.id, session.user.tenantId));
+}
+
+// ── Delivery Settings ───────────────────────────────────────────────────
+
+export async function getDeliverySettings() {
+  const session = await requireSession();
+
+  const [org] = await db
+    .select({ settings: organizations.settings })
+    .from(organizations)
+    .where(eq(organizations.id, session.user.tenantId))
+    .limit(1);
+
+  const delivery = org?.settings?.delivery;
+  return {
+    linkExpirationDays: delivery?.link_expiration_days ?? 30,
+    optOutFooter: delivery?.opt_out_footer ?? true,
+  };
+}
+
+export async function updateDeliverySettings(params: {
+  linkExpirationDays: number;
+  optOutFooter: boolean;
+}) {
+  const session = await requireSession();
+
+  const [org] = await db
+    .select({ settings: organizations.settings })
+    .from(organizations)
+    .where(eq(organizations.id, session.user.tenantId))
+    .limit(1);
+
+  const currentSettings = org?.settings ?? {};
+
+  await db
+    .update(organizations)
+    .set({
+      settings: {
+        ...currentSettings,
+        delivery: {
+          link_expiration_days: params.linkExpirationDays,
+          opt_out_footer: params.optOutFooter,
         },
       },
       updatedAt: new Date(),
@@ -377,6 +444,85 @@ export async function createOrganization(params: {
     .returning();
 
   return org;
+}
+
+export async function getOrganization(orgId: string) {
+  const session = await requireSession();
+  if (session.user.role !== "super_admin") {
+    throw new Error("Unauthorized: super_admin only");
+  }
+
+  const [org] = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+
+  return org;
+}
+
+export async function updateOrganization(
+  orgId: string,
+  params: { name?: string; slug?: string; primaryColor?: string }
+) {
+  const session = await requireSession();
+  if (session.user.role !== "super_admin") {
+    throw new Error("Unauthorized: super_admin only");
+  }
+
+  await db
+    .update(organizations)
+    .set({ ...params, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId));
+}
+
+export async function getOrgUsersForSuperAdmin(orgId: string) {
+  const session = await requireSession();
+  if (session.user.role !== "super_admin") {
+    throw new Error("Unauthorized: super_admin only");
+  }
+
+  return db
+    .select()
+    .from(users)
+    .where(eq(users.tenantId, orgId))
+    .orderBy(users.fullName);
+}
+
+export async function createUserForOrg(
+  orgId: string,
+  params: {
+    fullName: string;
+    email: string;
+    password: string;
+    role: UserRole;
+    isAdmin: boolean;
+    title?: string;
+  }
+) {
+  const session = await requireSession();
+  if (session.user.role !== "super_admin") {
+    throw new Error("Unauthorized: super_admin only");
+  }
+
+  const passwordHash = await bcrypt.hash(params.password, 10);
+
+  const [user] = await db
+    .insert(users)
+    .values({
+      tenantId: orgId,
+      passwordHash,
+      email: params.email,
+      fullName: params.fullName,
+      role: params.role,
+      isAdmin: params.isAdmin,
+      title: params.title ?? null,
+      isActive: true,
+      activatedAt: new Date(),
+    })
+    .returning();
+
+  return user;
 }
 
 export async function overrideSmsThrottle(orgId: string) {

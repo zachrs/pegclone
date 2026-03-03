@@ -69,6 +69,34 @@ export async function getRecipients(search?: string) {
 }
 
 /**
+ * Search existing recipients (for the send flow roster search).
+ */
+export async function searchRecipients(query: string) {
+  if (!query || query.length < 2) return [];
+  const session = await requireSession();
+  const tenant = withTenant(session.user.tenantId);
+
+  const recs = await db
+    .select({
+      id: recipients.id,
+      firstName: recipients.firstName,
+      lastName: recipients.lastName,
+      contact: recipients.contact,
+      contactType: recipients.contactType,
+    })
+    .from(recipients)
+    .where(
+      and(
+        tenant.eq(recipients.tenantId),
+        sql`(${recipients.contact} ILIKE ${"%" + query + "%"} OR ${recipients.firstName} ILIKE ${"%" + query + "%"} OR ${recipients.lastName} ILIKE ${"%" + query + "%"})`,
+      )
+    )
+    .limit(10);
+
+  return recs.filter((r) => !r.contact.startsWith("qr-"));
+}
+
+/**
  * Get message history for a specific contact.
  */
 export async function getMessagesForContact(contact: string) {

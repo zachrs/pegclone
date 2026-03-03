@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/header";
 import { ContentSearchBar } from "@/components/library/content-search-bar";
 import { ContentTabs } from "@/components/library/content-tabs";
 import { ContentGrid } from "@/components/library/content-grid";
+import { ContentList } from "@/components/library/content-list";
 import { FolderSidebar } from "@/components/library/folder-sidebar";
 import { SendCartBar } from "@/components/library/send-cart-bar";
 import { AddContentDialog } from "@/components/library/add-content-dialog";
@@ -17,6 +18,8 @@ export default function LibraryPage() {
     activeFolder,
     searchQuery,
     activeTab,
+    viewMode,
+    setViewMode,
   } = useLibraryStore();
   const { addItem } = useSendCart();
   const [sendDialogItem, setSendDialogItem] = useState<CartItem | null>(null);
@@ -148,7 +151,37 @@ export default function LibraryPage() {
 
           <div className="flex items-center justify-between">
             <ContentTabs />
-            <AddContentDialog />
+            <div className="flex items-center gap-2">
+              {/* View mode toggle */}
+              <div className="flex items-center rounded-lg border bg-gray-50 p-0.5">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`rounded-md p-1.5 transition-colors ${viewMode === "grid" ? "bg-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  aria-label="Grid view"
+                  title="Grid view"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="1" y="1" width="5.5" height="5.5" rx="1" />
+                    <rect x="9.5" y="1" width="5.5" height="5.5" rx="1" />
+                    <rect x="1" y="9.5" width="5.5" height="5.5" rx="1" />
+                    <rect x="9.5" y="9.5" width="5.5" height="5.5" rx="1" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`rounded-md p-1.5 transition-colors ${viewMode === "list" ? "bg-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  aria-label="List view"
+                  title="List view"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <line x1="1" y1="3" x2="15" y2="3" />
+                    <line x1="1" y1="8" x2="15" y2="8" />
+                    <line x1="1" y1="13" x2="15" y2="13" />
+                  </svg>
+                </button>
+              </div>
+              <AddContentDialog />
+            </div>
           </div>
 
           {activeFolderObj && (
@@ -161,14 +194,22 @@ export default function LibraryPage() {
           {(activeTab === "all" || activeTab === "org") && filteredOrgContent.length > 0 && (
             <section>
               {activeTab === "all" && <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Your Content</h2>}
-              <ContentGrid items={filteredOrgContent} onSendSingle={handleSendSingle} />
+              {viewMode === "grid" ? (
+                <ContentGrid items={filteredOrgContent} onSendSingle={handleSendSingle} />
+              ) : (
+                <ContentList items={filteredOrgContent} onSendSingle={handleSendSingle} />
+              )}
             </section>
           )}
 
           {(activeTab === "all" || activeTab === "system") && filteredSystemContent.length > 0 && (
             <section>
               {activeTab === "all" && <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">PEG Library</h2>}
-              <ContentGrid items={filteredSystemContent} onSendSingle={handleSendSingle} />
+              {viewMode === "grid" ? (
+                <ContentGrid items={filteredSystemContent} onSendSingle={handleSendSingle} />
+              ) : (
+                <ContentList items={filteredSystemContent} onSendSingle={handleSendSingle} />
+              )}
             </section>
           )}
 

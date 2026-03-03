@@ -25,7 +25,12 @@ export default function AdminBrandingPage() {
           setLogoUrl(org.logoUrl);
           setPrimaryColor(org.primaryColor ?? "#7c3aed");
           setSecondaryColor(org.secondaryColor ?? "");
-          // phone/address/website are in settings JSONB if needed
+          const contact = (org.settings as Record<string, Record<string, string>> | null)?.contact;
+          if (contact) {
+            setPhone(contact.phone ?? "");
+            setAddress(contact.address ?? "");
+            setWebsite(contact.website ?? "");
+          }
         }
       })
       .catch(() => {});
@@ -36,6 +41,9 @@ export default function AdminBrandingPage() {
       name: name.trim(),
       primaryColor,
       secondaryColor: secondaryColor.trim() || null,
+      phone: phone.trim(),
+      address: address.trim(),
+      website: website.trim(),
     });
     toast.success("Branding settings saved");
   };

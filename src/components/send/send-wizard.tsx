@@ -1,54 +1,172 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { useSendCart } from "@/lib/hooks/use-send-cart";
 import { sendMessage, bulkSend } from "@/lib/actions/send";
+import { searchRecipients } from "@/lib/actions/recipients";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
-type SendMode = "single" | "qr" | "bulk";
+type Step = 1 | 2 | 3 | 4;
+type SendMode = "single" | "bulk";
+type DeliveryChannel = "sms" | "email" | "qr_code" | "sms_and_email";
+
+const STEP_LABELS = ["Review Content", "Add Recipients", "Configure Delivery", "Preview & Send"];
 
 export function SendWizard() {
-  const { items, clear } = useSendCart();
+  const { items, removeItem, clear } = useSendCart();
+  const [step, setStep] = useState<Step>(1);
+  const [sending, setSending] = useState(false);
+
+  // Step 1 state
+  const [orderedItems, setOrderedItems] = useState(items);
+  const [personalNote, setPersonalNote] = useState("");
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  // Step 2 state
   const [mode, setMode] = useState<SendMode>("single");
   const [contact, setContact] = useState("");
-  const [sent, setSent] = useState(false);
-  const [sentContact, setSentContact] = useState("");
-  const [sentChannel, setSentChannel] = useState("");
-  const [qrGenerated, setQrGenerated] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [rosterQuery, setRosterQuery] = useState("");
+  const [rosterResults, setRosterResults] = useState<Array<{
+    id: string; firstName: string | null; lastName: string | null;
+    contact: string; contactType: string;
+  }>>([]);
+  const [rosterSearching, setRosterSearching] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkPreview, setBulkPreview] = useState<string[][]>([]);
-  const [bulkSentState, setBulkSentState] = useState(false);
-  const [bulkCount, setBulkCount] = useState(0);
-  const [sending, setSending] = useState(false);
+  const [bulkName, setBulkName] = useState("");
+
+  // Step 3 state
+  const [channel, setChannel] = useState<DeliveryChannel>("email");
+  const [scheduleMode, setScheduleMode] = useState<"now" | "later">("now");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [remindersEnabled, setRemindersEnabled] = useState(true);
+  const [reminderMax, setReminderMax] = useState(3);
+  const [reminderIntervalHours, setReminderIntervalHours] = useState(24);
+
+  // Success state
+  const [sent, setSent] = useState(false);
+  const [sentInfo, setSentInfo] = useState({ count: 0, channel: "", qr: false });
+
+  // Sync items when cart changes
+  useEffect(() => {
+    setOrderedItems(items);
+  }, [items]);
+
+  // Roster search
+  useEffect(() => {
+    if (!rosterQuery || rosterQuery.length < 2) {
+      setRosterResults([]);
+      return;
+    }
+    setRosterSearching(true);
+    const timer = setTimeout(() => {
+      searchRecipients(rosterQuery)
+        .then(setRosterResults)
+        .catch(() => {})
+        .finally(() => setRosterSearching(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [rosterQuery]);
 
   const isEmail = contact.includes("@");
   const isPhone = /^\+?\d[\d\s()-]{6,}$/.test(contact.trim());
-  const isValid = contact.trim().length > 0 && (isEmail || isPhone);
-  const channel = isEmail ? "email" : "sms";
+  const isValidContact = contact.trim().length > 0 && (isEmail || isPhone);
+  const autoChannel = isEmail ? "email" : "sms";
 
-  const contentBlocks = items.map((item, i) => ({
+  const contentBlocks = orderedItems.map((item, i) => ({
     type: "content_item" as const,
     content_item_id: item.id,
     order: i + 1,
   }));
 
+  // Drag-and-drop handlers
+  const handleDragStart = (idx: number) => setDragIdx(idx);
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const newItems = [...orderedItems];
+    const removed = newItems.splice(dragIdx, 1);
+    if (!removed[0]) return;
+    newItems.splice(idx, 0, removed[0]);
+    setOrderedItems(newItems);
+    setDragIdx(idx);
+  };
+  const handleDragEnd = () => setDragIdx(null);
+
+  // File upload (CSV + Excel)
+  const handleFileUpload = useCallback((file: File) => {
+    setBulkFile(file);
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) return;
+        const sheet = workbook.Sheets[sheetName];
+        if (!sheet) return;
+        const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
+        setBulkPreview(rows.map((r) => r.map(String)));
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const lines = text.trim().split("\n");
+        setBulkPreview(lines.map((l) => l.split(",").map((c) => c.trim())));
+      };
+      reader.readAsText(file);
+    }
+  }, []);
+
   const handleSend = async () => {
-    if (!isValid || items.length === 0 || sending) return;
+    if (sending) return;
     setSending(true);
+
     try {
-      await sendMessage({
-        recipientContact: contact.trim(),
-        contentBlocks,
-        deliveryChannel: channel,
-      });
-      setSentContact(contact.trim());
-      setSentChannel(channel === "email" ? "email" : "SMS");
+      if (mode === "single" && channel !== "qr_code") {
+        const effectiveChannel = channel === "sms_and_email" ? "email" : channel;
+        await sendMessage({
+          recipientContact: contact.trim(),
+          contentBlocks,
+          deliveryChannel: effectiveChannel as "sms" | "email",
+        });
+        if (channel === "sms_and_email") {
+          await sendMessage({
+            recipientContact: contact.trim(),
+            contentBlocks,
+            deliveryChannel: "sms",
+          });
+        }
+        setSentInfo({ count: 1, channel: channel === "sms_and_email" ? "SMS & Email" : channel, qr: false });
+      } else if (channel === "qr_code") {
+        await sendMessage({
+          recipientContact: "QR Code",
+          contentBlocks,
+          deliveryChannel: "qr_code",
+        });
+        setSentInfo({ count: 1, channel: "QR Code", qr: true });
+      } else {
+        // Bulk
+        const dataRows = bulkPreview.slice(1);
+        const contacts = dataRows.map((row) => row[2]?.trim()).filter((c): c is string => Boolean(c));
+        const results = await bulkSend({ contacts, contentBlocks });
+        setSentInfo({ count: results.length, channel: "bulk", qr: false });
+      }
       setSent(true);
       clear();
-      toast.success(`Message sent via ${channel === "email" ? "email" : "SMS"}`);
+      toast.success("Message sent successfully");
     } catch {
       toast.error("Failed to send message");
     } finally {
@@ -56,138 +174,66 @@ export function SendWizard() {
     }
   };
 
-  const handleQrGenerate = async () => {
-    if (items.length === 0 || sending) return;
-    setSending(true);
-    try {
-      await sendMessage({
-        recipientContact: "QR Code",
-        contentBlocks,
-        deliveryChannel: "qr_code",
-      });
-      setQrGenerated(true);
-      clear();
-      toast.success("QR code generated");
-    } catch {
-      toast.error("Failed to generate QR code");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleBulkUpload = (file: File) => {
-    setBulkFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.trim().split("\n");
-      const rows = lines.map((l) => l.split(",").map((c) => c.trim()));
-      setBulkPreview(rows);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleBulkSend = async () => {
-    if (bulkPreview.length < 2 || items.length === 0 || sending) return;
-    setSending(true);
-    try {
-      const dataRows = bulkPreview.slice(1); // skip header
-      const contacts = dataRows.map((row) => row[2]?.trim()).filter((c): c is string => Boolean(c));
-
-      const results = await bulkSend({ contacts, contentBlocks });
-      setBulkCount(results.length);
-      setBulkSentState(true);
-      clear();
-      toast.success(`Sent to ${results.length} recipients`);
-    } catch {
-      toast.error("Bulk send failed");
-    } finally {
-      setSending(false);
-    }
-  };
-
   const resetAll = () => {
     setSent(false);
+    setStep(1);
     setContact("");
-    setSentContact("");
-    setSentChannel("");
-    setQrGenerated(false);
+    setFirstName("");
+    setLastName("");
+    setPersonalNote("");
+    setMode("single");
     setBulkFile(null);
     setBulkPreview([]);
-    setBulkSentState(false);
-    setBulkCount(0);
-    setMode("single");
+    setBulkName("");
+    setChannel("email");
+    setScheduleMode("now");
+    setRemindersEnabled(true);
   };
 
-  // ── Success states ───────────────────────────────────────────────────
-
+  // ── Success screen ──────────────────────────────────────────────────
   if (sent) {
-    return (
-      <SuccessScreen
-        title="Sent!"
-        subtitle={
-          <>
-            Materials sent to{" "}
-            <span className="font-mono font-medium text-foreground">{sentContact}</span>{" "}
-            via {sentChannel}.
-          </>
-        }
-        onReset={resetAll}
-      />
-    );
-  }
-
-  if (qrGenerated) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-12 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M8 16l5.5 5.5L24 10" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         <div>
-          <h2 className="text-2xl font-semibold">QR Code Generated</h2>
-          <p className="mt-1 text-muted-foreground">Print or display this code for patients to scan.</p>
+          <h2 className="text-2xl font-semibold">Your message has been sent</h2>
+          <p className="mt-1 text-muted-foreground">
+            {sentInfo.qr
+              ? "QR code generated. Print or display for patients to scan."
+              : sentInfo.count === 1
+                ? `Sent via ${sentInfo.channel}.`
+                : `Sent to ${sentInfo.count} recipients.`}
+          </p>
         </div>
-        <div className="rounded-lg border-2 border-dashed border-gray-300 p-6">
-          <div className="grid h-40 w-40 grid-cols-5 grid-rows-5 gap-1">
-            {Array.from({ length: 25 }).map((_, i) => (
-              <div key={i} className={`rounded-sm ${[0, 1, 2, 4, 5, 6, 10, 12, 14, 18, 19, 20, 22, 23, 24].includes(i) ? "bg-gray-900" : "bg-white"}`} />
-            ))}
+        {sentInfo.qr && (
+          <div className="rounded-lg border-2 border-dashed border-gray-300 p-6">
+            <div className="grid h-40 w-40 grid-cols-5 grid-rows-5 gap-1">
+              {Array.from({ length: 25 }).map((_, i) => (
+                <div key={i} className={`rounded-sm ${[0, 1, 2, 4, 5, 6, 10, 12, 14, 18, 19, 20, 22, 23, 24].includes(i) ? "bg-gray-900" : "bg-white"}`} />
+              ))}
+            </div>
+            <p className="mt-3 font-mono text-xs text-muted-foreground">peg.app/m/qr-demo-token</p>
+            <div className="mt-3 flex gap-3">
+              <Button variant="outline" size="sm" onClick={() => toast.info("Download would trigger in production")}>Download PNG</Button>
+              <Button variant="outline" size="sm" onClick={() => toast.info("Print dialog would open in production")}>Print</Button>
+            </div>
           </div>
-          <p className="mt-3 font-mono text-xs text-muted-foreground">peg.app/m/qr-demo-token</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => toast.info("Download would trigger in production")}>Download PNG</Button>
-          <Button variant="outline" onClick={() => toast.info("Print dialog would open in production")}>Print</Button>
-        </div>
-        <Button variant="ghost" onClick={resetAll}>Send More</Button>
+        )}
+        <Button variant="outline" onClick={resetAll}>Send Another</Button>
       </div>
     );
   }
 
-  if (bulkSentState) {
-    return (
-      <SuccessScreen
-        title="Bulk Send Complete!"
-        subtitle={
-          <>
-            Materials sent to <span className="font-medium text-foreground">{bulkCount}</span> recipients.
-            Delivery status will appear in Recipients.
-          </>
-        }
-        onReset={resetAll}
-      />
-    );
-  }
-
-  // ── Empty cart ───────────────────────────────────────────────────────
-
-  if (items.length === 0) {
+  // ── Empty cart ──────────────────────────────────────────────────────
+  if (items.length === 0 && orderedItems.length === 0) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-12 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M22 2L11 13" />
             <path d="M22 2l-7 20-4-9-9-4 20-7z" />
           </svg>
@@ -203,165 +249,527 @@ export function SendWizard() {
     );
   }
 
-  // ── Main send form ───────────────────────────────────────────────────
+  // ── Stepper ────────────────────────────────────────────────────────
+  const canProceed = () => {
+    if (step === 1) return orderedItems.length > 0;
+    if (step === 2) {
+      if (channel === "qr_code") return true;
+      if (mode === "single") return isValidContact;
+      return bulkPreview.length > 1;
+    }
+    if (step === 3) return true;
+    return true;
+  };
 
   return (
-    <div className="mx-auto max-w-lg">
-      <div className="mb-6">
-        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Sending {items.length} item{items.length !== 1 ? "s" : ""}
-        </h2>
-        <div className="space-y-1.5">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-2 rounded-md border bg-orange-50 px-3 py-2 text-sm">
-              <span className="flex-1 font-medium">{item.title}</span>
-              <Badge variant="outline" className="text-xs">{item.type === "pdf" ? "PDF" : "Link"}</Badge>
+    <div className="mx-auto max-w-2xl">
+      {/* Stepper header */}
+      <div className="mb-8 flex items-center gap-2">
+        {STEP_LABELS.map((label, i) => {
+          const stepNum = (i + 1) as Step;
+          const isActive = step === stepNum;
+          const isComplete = step > stepNum;
+          return (
+            <div key={i} className="flex items-center gap-2">
+              {i > 0 && <div className={`h-px w-6 ${isComplete ? "bg-teal-500" : "bg-gray-200"}`} />}
+              <button
+                className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  isActive
+                    ? "bg-teal-700 text-white"
+                    : isComplete
+                      ? "bg-teal-100 text-teal-700 hover:bg-teal-200"
+                      : "bg-gray-100 text-muted-foreground"
+                }`}
+                onClick={() => { if (isComplete) setStep(stepNum); }}
+                disabled={!isComplete && !isActive}
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold">
+                  {isComplete ? "✓" : stepNum}
+                </span>
+                <span className="hidden sm:inline">{label}</span>
+              </button>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* Mode tabs */}
-      <div className="mb-6">
-        <div className="flex gap-1 rounded-lg border bg-gray-50 p-1" role="tablist" aria-label="Send mode">
-          {([{ key: "single", label: "Single Recipient" }, { key: "bulk", label: "Bulk CSV" }, { key: "qr", label: "QR Code" }] as const).map((tab) => (
-            <button
-              key={tab.key}
-              role="tab"
-              id={`tab-${tab.key}`}
-              aria-selected={mode === tab.key}
-              aria-controls={`tabpanel-${tab.key}`}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === tab.key ? "bg-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              onClick={() => setMode(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* ── Step 1: Review Content ─────────────────────────────────── */}
+      {step === 1 && (
+        <div>
+          <h2 className="mb-1 text-lg font-semibold">Review Selected Content</h2>
+          <p className="mb-4 text-sm text-muted-foreground">Drag items to reorder. Remove items you don&apos;t need.</p>
 
-      {/* Single recipient mode */}
-      {mode === "single" && (
-        <div role="tabpanel" id="tabpanel-single" aria-labelledby="tab-single">
-          <div className="mb-6">
-            <label htmlFor="send-contact" className="mb-2 block text-sm font-medium">Email or Mobile Phone (U.S. Only)</label>
-            <Input id="send-contact" placeholder="example@email.com, 888-555-5555" value={contact} onChange={(e) => setContact(e.target.value)} className="h-12 border-2 border-gray-200 text-base focus:border-teal-400" />
-            {contact.trim() && isValid && <p className="mt-1.5 text-xs text-muted-foreground">Will send via {isEmail ? "email" : "SMS"}</p>}
-            {contact.trim() && !isValid && <p className="mt-1.5 text-xs text-red-500">Enter a valid email address or phone number</p>}
+          <div className="space-y-2">
+            {orderedItems.map((item, idx) => (
+              <div
+                key={item.id}
+                draggable
+                onDragStart={() => handleDragStart(idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center gap-3 rounded-lg border bg-white px-4 py-3 transition-colors ${dragIdx === idx ? "border-teal-400 bg-teal-50" : "border-gray-200 hover:border-gray-300"} cursor-grab active:cursor-grabbing`}
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold text-muted-foreground">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                    <circle cx="4" cy="3" r="1.2" /><circle cx="10" cy="3" r="1.2" />
+                    <circle cx="4" cy="7" r="1.2" /><circle cx="10" cy="7" r="1.2" />
+                    <circle cx="4" cy="11" r="1.2" /><circle cx="10" cy="11" r="1.2" />
+                  </svg>
+                </span>
+                <span className="flex-1 text-sm font-medium">{item.title}</span>
+                <Badge variant="outline" className="text-xs">{item.type === "pdf" ? "PDF" : "Link"}</Badge>
+                <button
+                  className="text-muted-foreground hover:text-red-600 transition-colors"
+                  onClick={() => {
+                    removeItem(item.id);
+                    setOrderedItems((prev) => prev.filter((i) => i.id !== item.id));
+                  }}
+                  aria-label="Remove item"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
           </div>
-          <div className="flex items-center justify-between">
-            <Button variant="outline" onClick={() => { window.location.href = "/library"; }}>Keep Adding</Button>
-            <Button className="bg-teal-700 hover:bg-teal-800" onClick={handleSend} disabled={!isValid || sending}>
-              {sending ? "Sending..." : "Send"}
-            </Button>
+
+          <div className="mt-6">
+            <Label htmlFor="personal-note">Personal Note (optional)</Label>
+            <textarea
+              id="personal-note"
+              value={personalNote}
+              onChange={(e) => setPersonalNote(e.target.value)}
+              placeholder="Add a personal message that will appear at the top of the patient viewer..."
+              rows={3}
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+            />
           </div>
         </div>
       )}
 
-      {/* Bulk CSV mode */}
-      {mode === "bulk" && (
-        <div role="tabpanel" id="tabpanel-bulk" aria-labelledby="tab-bulk">
-          {!bulkFile ? (
-            <div className="mb-6">
-              <label htmlFor="csv-upload" className="mb-2 block text-sm font-medium">Upload CSV File</label>
-              <div
-                className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 py-10 transition-colors hover:border-teal-300"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file && file.name.endsWith(".csv")) handleBulkUpload(file); }}
-              >
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="12" y1="18" x2="12" y2="12" />
-                  <line x1="9" y1="15" x2="15" y2="15" />
-                </svg>
-                <p className="text-sm text-muted-foreground">Drag a CSV file here or click to upload</p>
-                <p className="text-xs text-muted-foreground">Required columns: first_name, last_name, contact</p>
-                <input type="file" accept=".csv" className="hidden" id="csv-upload" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleBulkUpload(file); }} />
-                <Button variant="outline" size="sm" onClick={() => document.getElementById("csv-upload")?.click()}>Choose File</Button>
-              </div>
+      {/* ── Step 2: Add Recipients ─────────────────────────────────── */}
+      {step === 2 && (
+        <div>
+          <h2 className="mb-1 text-lg font-semibold">Add Recipients</h2>
+          <p className="mb-4 text-sm text-muted-foreground">Enter a recipient manually, search the roster, or upload a file.</p>
+
+          {/* Mode tabs */}
+          <div className="mb-6">
+            <div className="flex gap-1 rounded-lg border bg-gray-50 p-1" role="tablist">
+              {([
+                { key: "single" as const, label: "Single Recipient" },
+                { key: "bulk" as const, label: "Bulk Upload" },
+              ]).map((tab) => (
+                <button
+                  key={tab.key}
+                  role="tab"
+                  aria-selected={mode === tab.key}
+                  className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === tab.key ? "bg-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setMode(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="mb-6">
-              <div className="mb-3 flex items-center justify-between">
+          </div>
+
+          {mode === "single" && (
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <p className="text-sm font-medium">{bulkFile.name}</p>
-                  <p className="text-xs text-muted-foreground">{bulkPreview.length - 1} recipient{bulkPreview.length - 1 !== 1 ? "s" : ""} found</p>
+                  <Label htmlFor="first-name">First Name</Label>
+                  <Input id="first-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jane" className="mt-1" />
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => { setBulkFile(null); setBulkPreview([]); }}>Remove</Button>
+                <div>
+                  <Label htmlFor="last-name">Last Name</Label>
+                  <Input id="last-name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" className="mt-1" />
+                </div>
               </div>
-              <div className="max-h-48 overflow-auto rounded-md border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      {bulkPreview[0]?.map((header, i) => (
-                        <th key={i} className="px-3 py-2 text-left font-medium text-muted-foreground">{header}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bulkPreview.slice(1, 6).map((row, ri) => (
-                      <tr key={ri} className="border-b">
-                        {row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{cell}</td>)}
-                      </tr>
+
+              <div>
+                <Label htmlFor="send-contact">Email or Mobile Phone</Label>
+                <Input
+                  id="send-contact"
+                  placeholder="example@email.com or 888-555-5555"
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value)}
+                  className="mt-1 h-12 border-2 border-gray-200 text-base focus:border-teal-400"
+                />
+                {contact.trim() && isValidContact && (
+                  <p className="mt-1 text-xs text-muted-foreground">Will send via {isEmail ? "email" : "SMS"}</p>
+                )}
+                {contact.trim() && !isValidContact && (
+                  <p className="mt-1 text-xs text-red-500">Enter a valid email address or phone number</p>
+                )}
+              </div>
+
+              {/* Roster search */}
+              <div className="rounded-lg border bg-gray-50 p-4">
+                <Label htmlFor="roster-search" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Or search existing recipients</Label>
+                <Input
+                  id="roster-search"
+                  placeholder="Search by name, email, or phone..."
+                  value={rosterQuery}
+                  onChange={(e) => setRosterQuery(e.target.value)}
+                  className="mt-2"
+                />
+                {rosterSearching && <p className="mt-2 text-xs text-muted-foreground">Searching...</p>}
+                {rosterResults.length > 0 && (
+                  <div className="mt-2 max-h-40 space-y-1 overflow-auto">
+                    {rosterResults.map((r) => (
+                      <button
+                        key={r.id}
+                        className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-white transition-colors"
+                        onClick={() => {
+                          setContact(r.contact);
+                          setFirstName(r.firstName ?? "");
+                          setLastName(r.lastName ?? "");
+                          setRosterQuery("");
+                          setRosterResults([]);
+                        }}
+                      >
+                        <span className="flex-1 font-medium">
+                          {r.firstName || r.lastName
+                            ? `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim()
+                            : "No name"}
+                        </span>
+                        <span className="font-mono text-xs text-muted-foreground">{r.contact}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {r.contactType === "email" ? "Email" : "SMS"}
+                        </Badge>
+                      </button>
                     ))}
-                    {bulkPreview.length > 6 && (
-                      <tr><td colSpan={bulkPreview[0]?.length} className="px-3 py-1.5 text-center text-xs text-muted-foreground">... and {bulkPreview.length - 6} more</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between">
-            <Button variant="outline" onClick={() => { window.location.href = "/library"; }}>Keep Adding</Button>
-            <Button className="bg-teal-700 hover:bg-teal-800" onClick={handleBulkSend} disabled={!bulkFile || bulkPreview.length < 2 || sending}>
-              {sending ? "Sending..." : `Send to ${Math.max(0, bulkPreview.length - 1)} Recipients`}
-            </Button>
+
+          {mode === "bulk" && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="bulk-name">Send Name</Label>
+                <Input
+                  id="bulk-name"
+                  value={bulkName}
+                  onChange={(e) => setBulkName(e.target.value)}
+                  placeholder="e.g., Flu Shot Reminder - Oct 2025"
+                  className="mt-1"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Name this bulk send for tracking in analytics.</p>
+              </div>
+
+              {!bulkFile ? (
+                <div
+                  className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 py-10 transition-colors hover:border-teal-300"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file && (file.name.endsWith(".csv") || file.name.endsWith(".xlsx") || file.name.endsWith(".xls"))) {
+                      handleFileUpload(file);
+                    }
+                  }}
+                >
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                  </svg>
+                  <p className="text-sm text-muted-foreground">Drag a CSV or Excel file here or click to upload</p>
+                  <p className="text-xs text-muted-foreground">Required columns: first_name, last_name, contact</p>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    className="hidden"
+                    id="file-upload"
+                    onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFileUpload(file); }}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => document.getElementById("file-upload")?.click()}>Choose File</Button>
+                </div>
+              ) : (
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{bulkFile.name}</p>
+                      <p className="text-xs text-muted-foreground">{bulkPreview.length - 1} recipient{bulkPreview.length - 1 !== 1 ? "s" : ""} found</p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => { setBulkFile(null); setBulkPreview([]); }}>Remove</Button>
+                  </div>
+                  <div className="max-h-48 overflow-auto rounded-md border">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-gray-50">
+                          {bulkPreview[0]?.map((header, i) => (
+                            <th key={i} className="px-3 py-2 text-left font-medium text-muted-foreground">{header}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkPreview.slice(1, 6).map((row, ri) => (
+                          <tr key={ri} className="border-b">
+                            {row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{cell}</td>)}
+                          </tr>
+                        ))}
+                        {bulkPreview.length > 6 && (
+                          <tr><td colSpan={bulkPreview[0]?.length} className="px-3 py-1.5 text-center text-xs text-muted-foreground">... and {bulkPreview.length - 6} more</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Step 3: Configure Delivery ────────────────────────────── */}
+      {step === 3 && (
+        <div>
+          <h2 className="mb-1 text-lg font-semibold">Configure Delivery</h2>
+          <p className="mb-6 text-sm text-muted-foreground">Choose how and when to deliver.</p>
+
+          {/* Channel selection */}
+          <div className="mb-6">
+            <Label className="mb-2 block text-sm font-medium">Delivery Channel</Label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {([
+                { key: "email" as const, label: "Email", icon: "✉" },
+                { key: "sms" as const, label: "SMS", icon: "💬" },
+                { key: "sms_and_email" as const, label: "Both", icon: "📨" },
+                ...(mode === "single" ? [{ key: "qr_code" as const, label: "QR Code", icon: "📱" }] : []),
+              ]).map((opt) => (
+                <button
+                  key={opt.key}
+                  className={`flex flex-col items-center gap-1 rounded-lg border-2 p-3 text-sm font-medium transition-colors ${
+                    channel === opt.key
+                      ? "border-teal-500 bg-teal-50 text-teal-700"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => setChannel(opt.key)}
+                >
+                  <span className="text-lg">{opt.icon}</span>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {channel === "qr_code" && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                QR code sends track aggregate scan count only. No reminders apply.
+              </p>
+            )}
+          </div>
+
+          {/* Schedule */}
+          <div className="mb-6">
+            <Label className="mb-2 block text-sm font-medium">Schedule</Label>
+            <div className="flex gap-2">
+              <button
+                className={`flex-1 rounded-lg border-2 p-3 text-sm font-medium transition-colors ${
+                  scheduleMode === "now" ? "border-teal-500 bg-teal-50 text-teal-700" : "border-gray-200 hover:border-gray-300"
+                }`}
+                onClick={() => setScheduleMode("now")}
+              >
+                Send Now
+              </button>
+              <button
+                className={`flex-1 rounded-lg border-2 p-3 text-sm font-medium transition-colors ${
+                  scheduleMode === "later" ? "border-teal-500 bg-teal-50 text-teal-700" : "border-gray-200 hover:border-gray-300"
+                }`}
+                onClick={() => setScheduleMode("later")}
+              >
+                Schedule
+              </button>
+            </div>
+            {scheduleMode === "later" && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="sched-date">Date</Label>
+                  <Input id="sched-date" type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="sched-time">Time</Label>
+                  <Input id="sched-time" type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="mt-1" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Reminders */}
+          {channel !== "qr_code" && (
+            <div className="rounded-lg border bg-gray-50 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Automated Reminders</p>
+                  <p className="text-xs text-muted-foreground">Send follow-up if the recipient hasn&apos;t opened</p>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={remindersEnabled}
+                  className={`relative h-6 w-11 rounded-full transition-colors ${remindersEnabled ? "bg-teal-600" : "bg-gray-300"}`}
+                  onClick={() => setRemindersEnabled(!remindersEnabled)}
+                >
+                  <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform shadow ${remindersEnabled ? "translate-x-5" : ""}`} />
+                </button>
+              </div>
+              {remindersEnabled && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="rem-max" className="text-xs">Max Reminders</Label>
+                    <select
+                      id="rem-max"
+                      value={reminderMax}
+                      onChange={(e) => setReminderMax(Number(e.target.value))}
+                      className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                    >
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="rem-interval" className="text-xs">Interval (hours)</Label>
+                    <Input id="rem-interval" type="number" min={1} max={168} value={reminderIntervalHours} onChange={(e) => setReminderIntervalHours(Number(e.target.value))} className="mt-1" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Step 4: Preview & Send ────────────────────────────────── */}
+      {step === 4 && (
+        <div>
+          <h2 className="mb-1 text-lg font-semibold">Preview & Send</h2>
+          <p className="mb-6 text-sm text-muted-foreground">Review your message before sending.</p>
+
+          {/* Branded message preview */}
+          <div className="mb-6 overflow-hidden rounded-xl border shadow-sm">
+            <div className="bg-teal-700 px-5 py-4 text-white">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-lg font-bold">O</div>
+                <div>
+                  <p className="font-semibold">Your Organization</p>
+                  <p className="text-sm text-white/80">(555) 123-4567</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-700 text-sm font-semibold text-white">JD</div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Dr. Jane Doe</p>
+                  <p className="text-xs text-gray-500">MD</p>
+                </div>
+              </div>
+              {personalNote && (
+                <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-700 italic">&quot;{personalNote}&quot;</p>
+              )}
+            </div>
+            <div className="space-y-1 bg-gray-50 px-5 py-3">
+              {orderedItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50">
+                    {item.type === "pdf" ? (
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M6 2h6l4 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="#0d9488" strokeWidth="1.5" /><path d="M12 2v4h4" stroke="#0d9488" strokeWidth="1.5" /></svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M8 4H6a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-2" stroke="#0d9488" strokeWidth="1.5" strokeLinecap="round" /><path d="M11 3h6v6M17 3L9 11" stroke="#0d9488" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">{item.title}</span>
+                  <Badge variant="outline" className="ml-auto text-xs">{item.type === "pdf" ? "PDF" : "Link"}</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Send summary */}
+          <div className="mb-6 rounded-lg border bg-white p-4">
+            <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Send Summary</h3>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Content items</dt>
+                <dd className="font-medium">{orderedItems.length}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Recipient{mode === "bulk" ? "s" : ""}</dt>
+                <dd className="font-medium">
+                  {mode === "single"
+                    ? channel === "qr_code"
+                      ? "QR Code (anyone who scans)"
+                      : contact
+                    : `${bulkPreview.length - 1} recipients`}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Channel</dt>
+                <dd className="font-medium">
+                  {channel === "sms_and_email" ? "SMS & Email" : channel === "qr_code" ? "QR Code" : channel.toUpperCase()}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Schedule</dt>
+                <dd className="font-medium">
+                  {scheduleMode === "now" ? "Send immediately" : `${scheduledDate} at ${scheduledTime}`}
+                </dd>
+              </div>
+              {channel !== "qr_code" && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Reminders</dt>
+                  <dd className="font-medium">
+                    {remindersEnabled ? `${reminderMax} reminders, every ${reminderIntervalHours}h` : "Disabled"}
+                  </dd>
+                </div>
+              )}
+              {personalNote && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Personal note</dt>
+                  <dd className="font-medium text-right max-w-[200px] truncate">{personalNote}</dd>
+                </div>
+              )}
+            </dl>
           </div>
         </div>
       )}
 
-      {/* QR Code mode */}
-      {mode === "qr" && (
-        <div role="tabpanel" id="tabpanel-qr" aria-labelledby="tab-qr">
-          <div className="mb-6 rounded-lg border bg-gray-50 p-4">
-            <h3 className="font-medium">How QR Code Sending Works</h3>
-            <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-              <li className="flex gap-2"><span className="shrink-0 text-teal-700">1.</span>A single shareable link is created for the selected content.</li>
-              <li className="flex gap-2"><span className="shrink-0 text-teal-700">2.</span>A QR code is generated that points to this link.</li>
-              <li className="flex gap-2"><span className="shrink-0 text-teal-700">3.</span>Download or print the QR code and display it in your office.</li>
-              <li className="flex gap-2"><span className="shrink-0 text-teal-700">4.</span>Any patient can scan it to access the materials — no login needed.</li>
-            </ul>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Note: QR code sends track aggregate scan count only. Individual recipient tracking and reminders are not available.
-            </p>
-          </div>
-          <div className="flex items-center justify-between">
-            <Button variant="outline" onClick={() => { window.location.href = "/library"; }}>Keep Adding</Button>
-            <Button className="bg-teal-700 hover:bg-teal-800" onClick={handleQrGenerate} disabled={sending}>
-              {sending ? "Generating..." : "Generate QR Code"}
+      {/* ── Navigation buttons ─────────────────────────────────────── */}
+      <div className="mt-8 flex items-center justify-between border-t pt-4">
+        <div>
+          {step > 1 && (
+            <Button variant="outline" onClick={() => setStep((step - 1) as Step)}>
+              Back
             </Button>
-          </div>
+          )}
+          {step === 1 && (
+            <Button variant="outline" onClick={() => { window.location.href = "/library"; }}>
+              Add More Content
+            </Button>
+          )}
         </div>
-      )}
-    </div>
-  );
-}
-
-function SuccessScreen({ title, subtitle, onReset }: { title: string; subtitle: React.ReactNode; onReset: () => void }) {
-  return (
-    <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-12 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <path d="M8 16l5.5 5.5L24 10" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <div>
+          {step < 4 ? (
+            <Button
+              className="bg-teal-700 hover:bg-teal-800"
+              onClick={() => setStep((step + 1) as Step)}
+              disabled={!canProceed()}
+            >
+              Continue
+            </Button>
+          ) : (
+            <Button
+              className="bg-teal-700 hover:bg-teal-800"
+              onClick={handleSend}
+              disabled={sending}
+            >
+              {sending ? "Sending..." : scheduleMode === "later" ? "Schedule Send" : "Send Now"}
+            </Button>
+          )}
+        </div>
       </div>
-      <div>
-        <h2 className="text-2xl font-semibold">{title}</h2>
-        <p className="mt-1 text-muted-foreground">{subtitle}</p>
-      </div>
-      <Button variant="outline" onClick={onReset}>Send More</Button>
     </div>
   );
 }

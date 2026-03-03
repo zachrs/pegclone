@@ -90,6 +90,15 @@ export const organizations = pgTable("organizations", {
     mfa?: {
       required: boolean;
     };
+    contact?: {
+      phone: string;
+      address: string;
+      website: string;
+    };
+    delivery?: {
+      link_expiration_days: number;
+      opt_out_footer: boolean;
+    };
   }>(),
   smsSendCountMonth: integer("sms_send_count_month").default(0).notNull(),
   smsThrottled: boolean("sms_throttled").default(false).notNull(),

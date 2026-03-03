@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import {
   getMessageTemplates,
   updateMessageTemplates,
+  getDeliverySettings,
+  updateDeliverySettings,
   getMfaSettings,
   updateMfaSettings,
   publishFolder,
@@ -44,6 +46,9 @@ export default function AdminSettingsPage() {
     getMessageTemplates()
       .then((t) => { setSms(t.sms); setEmailSubject(t.emailSubject); setEmailBody(t.emailBody); })
       .catch(() => {});
+    getDeliverySettings()
+      .then((d) => { setLinkExpDays(d.linkExpirationDays); setOptOutFooter(d.optOutFooter); })
+      .catch(() => {});
     getMfaSettings()
       .then((s) => setMfaRequired(s.required))
       .catch(() => {});
@@ -55,7 +60,17 @@ export default function AdminSettingsPage() {
     toast.success("Message templates saved");
   };
 
-  const saveDelivery = () => { toast.success("Delivery settings saved"); };
+  const saveDelivery = async () => {
+    try {
+      await updateDeliverySettings({
+        linkExpirationDays: linkExpDays,
+        optOutFooter: optOutFooter,
+      });
+      toast.success("Delivery settings saved");
+    } catch {
+      toast.error("Failed to save delivery settings");
+    }
+  };
 
   const saveMfaSettings = async () => {
     setMfaSaving(true);
