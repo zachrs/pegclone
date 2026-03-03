@@ -6,6 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
 import crypto from "crypto";
+import { enqueueDelivery } from "@/lib/jobs/enqueue";
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -14,11 +15,18 @@ function hashToken(token: string) {
 /**
  * Send a message to a single recipient.
  * Auto-creates recipient record if not found.
+ * Enqueues delivery via pg-boss for actual SMS/email dispatch.
  */
 export async function sendMessage(params: {
   recipientContact: string;
   contentBlocks: Array<{ type: "content_item"; content_item_id: string; order: number }>;
   deliveryChannel: "sms" | "email" | "qr_code";
+  scheduledAt?: Date;
+  reminders?: {
+    enabled: boolean;
+    maxReminders: number;
+    intervalHours: number;
+  };
 }) {
   const session = await requireSession();
   const tenant = withTenant(session.user.tenantId);
@@ -88,7 +96,7 @@ export async function sendMessage(params: {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 30);
 
-  // Create message
+  // Create message record in "queued" state
   const [message] = await db
     .insert(messages)
     .values({
@@ -98,25 +106,96 @@ export async function sendMessage(params: {
       contentBlocks: params.contentBlocks,
       deliveryChannel: params.deliveryChannel,
       status: "queued",
-      sentAt: new Date(),
+      scheduledAt: params.scheduledAt ?? null,
       accessTokenHash: hashToken(accessToken),
       accessTokenExpiresAt: expiresAt,
     })
     .returning();
   if (!message) throw new Error("Failed to create message");
 
-  // In production: enqueue delivery job via pg-boss here.
-  // For now, simulate delivery by marking as delivered after insert.
-  await db
-    .update(messages)
-    .set({
-      status: "delivered",
-      deliveredAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(messages.id, message.id));
+  // Enqueue for async delivery (email/sms only — QR doesn't need delivery)
+  if (params.deliveryChannel !== "qr_code") {
+    try {
+      await enqueueDelivery({
+        messageId: message.id,
+        tenantId,
+        recipientContact: params.recipientContact,
+        deliveryChannel: params.deliveryChannel as "email" | "sms",
+        accessToken,
+        scheduledAt: params.scheduledAt,
+        reminders: params.reminders,
+      });
+    } catch (err) {
+      // If queue is unavailable (e.g., dev/no DB), fall back to direct delivery
+      console.warn("[send] pg-boss unavailable, falling back to direct delivery:", err);
+      await directDeliver(message.id, params.recipientContact, params.deliveryChannel as "email" | "sms", accessToken);
+    }
+  } else {
+    // QR code messages are immediately "delivered" (printable)
+    await db
+      .update(messages)
+      .set({
+        status: "delivered",
+        sentAt: new Date(),
+        deliveredAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(messages.id, message.id));
+  }
 
   return { messageId: message.id, accessToken };
+}
+
+/**
+ * Direct delivery fallback when pg-boss is not available.
+ * Sends synchronously and updates message status.
+ */
+async function directDeliver(
+  messageId: string,
+  recipientContact: string,
+  channel: "email" | "sms",
+  accessToken: string
+) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const viewerUrl = `${baseUrl}/m/${accessToken}`;
+
+  let result: { success: boolean; error?: string };
+
+  if (channel === "email") {
+    const { sendEmail } = await import("@/lib/delivery/email");
+    result = await sendEmail({
+      to: recipientContact,
+      subject: "Your provider has shared health information with you",
+      text: `Your provider has shared health information with you. View it here: ${viewerUrl}`,
+    });
+  } else {
+    const { sendSms } = await import("@/lib/delivery/sms");
+    result = await sendSms({
+      to: recipientContact,
+      body: `Your provider has shared health information with you. View it here: ${viewerUrl}`,
+    });
+  }
+
+  if (result.success) {
+    await db
+      .update(messages)
+      .set({
+        status: "delivered",
+        sentAt: new Date(),
+        deliveredAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(messages.id, messageId));
+  } else {
+    await db
+      .update(messages)
+      .set({
+        status: "failed",
+        deliveryError: result.error ?? "Unknown error",
+        updatedAt: new Date(),
+      })
+      .where(eq(messages.id, messageId));
+  }
 }
 
 /**
