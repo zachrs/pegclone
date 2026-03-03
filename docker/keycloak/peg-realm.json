@@ -1,0 +1,80 @@
+{
+  "realm": "peg",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "roles": {
+    "realm": [
+      { "name": "default-roles-peg", "composite": false }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "peg-app",
+      "name": "Patient Education Genius",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "peg-dev-secret",
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email"],
+      "optionalClientScopes": []
+    }
+  ],
+  "users": [
+    {
+      "username": "superadmin@peg.test",
+      "email": "superadmin@peg.test",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Super",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "provider@acme.test",
+      "email": "provider@acme.test",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Dr. Sarah",
+      "lastName": "Chen",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "admin@acme.test",
+      "email": "admin@acme.test",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
