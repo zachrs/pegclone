@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { ContentSearchBar } from "@/components/library/content-search-bar";
 import { ContentTabs } from "@/components/library/content-tabs";
@@ -10,13 +10,10 @@ import { SendCartBar } from "@/components/library/send-cart-bar";
 import { AddContentDialog } from "@/components/library/add-content-dialog";
 import { useLibraryStore } from "@/lib/hooks/use-library-store";
 import { useSendCart, type CartItem } from "@/lib/hooks/use-send-cart";
-import { MOCK_SYSTEM_LIBRARY } from "@/lib/algolia/mock-data";
+import { getOrgContent, getSystemContent, getFolders, getFolderItems } from "@/lib/actions/library";
 
 export default function LibraryPage() {
   const {
-    orgContent,
-    folders,
-    favorites,
     activeFolder,
     searchQuery,
     activeTab,
@@ -24,36 +21,73 @@ export default function LibraryPage() {
   const { addItem } = useSendCart();
   const [sendDialogItem, setSendDialogItem] = useState<CartItem | null>(null);
 
-  // Filter system library by search query
-  const filteredSystemContent = useMemo(() => {
-    if (!searchQuery && activeTab === "org") return [];
-    const q = searchQuery.toLowerCase();
-    return MOCK_SYSTEM_LIBRARY.filter(
-      (item) =>
-        !q ||
-        item.title.toLowerCase().includes(q) ||
-        item.source.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
-    ).map((item) => ({
-      id: item.objectID,
-      title: item.title,
-      source: item.source,
-      type: "link" as const,
-      url: item.url,
-      isFavorite: favorites.has(item.objectID),
-    }));
-  }, [searchQuery, activeTab, favorites]);
+  // DB-backed state
+  const [orgContent, setOrgContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null }>>([]);
+  const [systemContent, setSystemContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null }>>([]);
+  const [folders, setFolders] = useState<Array<{ id: string; name: string; type: string }>>([]);
+  const [folderItemIds, setFolderItemIds] = useState<Set<string>>(new Set());
 
-  // Filter org content by search query and active folder
+  // Load org content
+  useEffect(() => {
+    getOrgContent()
+      .then((data) => setOrgContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null }>))
+      .catch(() => {});
+  }, []);
+
+  // Load folders
+  useEffect(() => {
+    getFolders()
+      .then((data) => {
+        setFolders(data as Array<{ id: string; name: string; type: string }>);
+        // Also update the Zustand store so FolderSidebar has the data
+        const store = useLibraryStore.getState();
+        // Sync folders to store for FolderSidebar
+        useLibraryStore.setState({
+          folders: data.map((f) => ({
+            id: f.id,
+            name: f.name,
+            type: f.type as "personal" | "team" | "favorites",
+          })),
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  // Load system content based on search query
+  useEffect(() => {
+    if (activeTab === "org" || !searchQuery) {
+      setSystemContent([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      getSystemContent(searchQuery)
+        .then((data) => setSystemContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null }>))
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeTab]);
+
+  // Load folder items when a folder is selected
+  useEffect(() => {
+    if (!activeFolder || activeFolder === "favorites") {
+      setFolderItemIds(new Set());
+      return;
+    }
+    getFolderItems(activeFolder)
+      .then((items) => {
+        setFolderItemIds(new Set(items.map((i) => i.contentItemId)));
+      })
+      .catch(() => {});
+  }, [activeFolder]);
+
+  // Filter org content
   const filteredOrgContent = useMemo(() => {
     if (activeTab === "system") return [];
     let items = orgContent;
 
     // Filter by folder
-    if (activeFolder === "favorites") {
-      items = items.filter((item) => favorites.has(item.id));
-    } else if (activeFolder) {
-      items = items.filter((item) => item.folderId === activeFolder);
+    if (activeFolder && activeFolder !== "favorites" && folderItemIds.size > 0) {
+      items = items.filter((item) => folderItemIds.has(item.id));
     }
 
     // Filter by search
@@ -62,19 +96,31 @@ export default function LibraryPage() {
       items = items.filter(
         (item) =>
           item.title.toLowerCase().includes(q) ||
-          item.source.toLowerCase().includes(q)
+          (item.source?.toLowerCase().includes(q) ?? false)
       );
     }
 
     return items.map((item) => ({
       id: item.id,
       title: item.title,
-      source: item.source,
+      source: item.source ?? "org_upload",
       type: item.type,
-      url: item.url,
-      isFavorite: favorites.has(item.id),
+      url: item.url ?? undefined,
+      isFavorite: false,
     }));
-  }, [orgContent, activeFolder, searchQuery, activeTab, favorites]);
+  }, [orgContent, activeFolder, searchQuery, activeTab, folderItemIds]);
+
+  const filteredSystemContent = useMemo(() => {
+    if (activeTab === "org") return [];
+    return systemContent.map((item) => ({
+      id: item.id,
+      title: item.title,
+      source: item.source ?? "system_library",
+      type: item.type as "pdf" | "link",
+      url: item.url ?? undefined,
+      isFavorite: false,
+    }));
+  }, [systemContent, activeTab]);
 
   const handleSendSingle = (item: CartItem) => {
     addItem(item);
@@ -90,83 +136,49 @@ export default function LibraryPage() {
     <>
       <Header title="Content Library" />
       <main className="flex flex-1 overflow-hidden">
-        {/* Folder sidebar */}
         <aside className="hidden border-r p-4 md:block">
           <FolderSidebar />
         </aside>
 
-        {/* Main content area */}
         <div className="flex flex-1 flex-col gap-4 overflow-auto p-6">
-          {/* Top bar: search + cart */}
           <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <ContentSearchBar />
-            </div>
+            <div className="flex-1"><ContentSearchBar /></div>
             <SendCartBar />
           </div>
 
-          {/* Tabs + add content */}
           <div className="flex items-center justify-between">
             <ContentTabs />
             <AddContentDialog />
           </div>
 
-          {/* Active folder indicator */}
           {activeFolderObj && (
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-purple-700">
-                Viewing: {activeFolderObj.name}
-              </span>
-              <button
-                className="text-xs text-muted-foreground underline"
-                onClick={() => useLibraryStore.getState().setActiveFolder(null)}
-              >
-                Clear
-              </button>
+              <span className="text-sm font-medium text-purple-700">Viewing: {activeFolderObj.name}</span>
+              <button className="text-xs text-muted-foreground underline" onClick={() => useLibraryStore.getState().setActiveFolder(null)}>Clear</button>
             </div>
           )}
 
-          {/* Content sections */}
-          {(activeTab === "all" || activeTab === "org") &&
-            filteredOrgContent.length > 0 && (
-              <section>
-                {activeTab === "all" && (
-                  <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    Your Content
-                  </h2>
-                )}
-                <ContentGrid
-                  items={filteredOrgContent}
-                  onSendSingle={handleSendSingle}
-                />
-              </section>
-            )}
+          {(activeTab === "all" || activeTab === "org") && filteredOrgContent.length > 0 && (
+            <section>
+              {activeTab === "all" && <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Your Content</h2>}
+              <ContentGrid items={filteredOrgContent} onSendSingle={handleSendSingle} />
+            </section>
+          )}
 
-          {(activeTab === "all" || activeTab === "system") &&
-            filteredSystemContent.length > 0 && (
-              <section>
-                {activeTab === "all" && (
-                  <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    PEG Library
-                  </h2>
-                )}
-                <ContentGrid
-                  items={filteredSystemContent}
-                  onSendSingle={handleSendSingle}
-                />
-              </section>
-            )}
+          {(activeTab === "all" || activeTab === "system") && filteredSystemContent.length > 0 && (
+            <section>
+              {activeTab === "all" && <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">PEG Library</h2>}
+              <ContentGrid items={filteredSystemContent} onSendSingle={handleSendSingle} />
+            </section>
+          )}
 
-          {filteredOrgContent.length === 0 &&
-            filteredSystemContent.length === 0 && (
-              <div className="flex h-48 items-center justify-center rounded-lg border border-dashed">
-                <p className="text-sm text-muted-foreground">
-                  {searchQuery
-                    ? `No results for "${searchQuery}"`
-                    : "No content in this folder"}
-                </p>
-              </div>
-            )}
+          {filteredOrgContent.length === 0 && filteredSystemContent.length === 0 && (
+            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-sm text-muted-foreground">
+                {searchQuery ? `No results for "${searchQuery}"` : "No content in this folder"}
+              </p>
+            </div>
+          )}
         </div>
       </main>
     </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -12,64 +12,44 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useMessagesStore, type Message } from "@/lib/hooks/use-messages-store";
-
-/** Aggregated view of a unique contact from send history */
-interface RecipientRow {
-  contact: string;
-  contactType: "email" | "phone";
-  totalSent: number;
-  lastMessagedAt: string;
-  lastOpenedAt: string | null;
-}
+import {
+  getRecipients,
+  getMessagesForContact,
+  type RecipientSummary,
+} from "@/lib/actions/recipients";
 
 export default function RecipientsPage() {
-  const { messages } = useMessagesStore();
+  const [recipients, setRecipients] = useState<RecipientSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
+  const [contactMessages, setContactMessages] = useState<
+    Awaited<ReturnType<typeof getMessagesForContact>>
+  >([]);
+  const [loaded, setLoaded] = useState(false);
 
-  // Aggregate messages by contact
-  const recipients = useMemo(() => {
-    const map = new Map<string, RecipientRow>();
-    for (const msg of messages) {
-      const existing = map.get(msg.recipientContact);
-      if (existing) {
-        existing.totalSent += 1;
-        if (msg.sentAt > existing.lastMessagedAt) {
-          existing.lastMessagedAt = msg.sentAt;
-        }
-        if (msg.openedAt && (!existing.lastOpenedAt || msg.openedAt > existing.lastOpenedAt)) {
-          existing.lastOpenedAt = msg.openedAt;
-        }
-      } else {
-        map.set(msg.recipientContact, {
-          contact: msg.recipientContact,
-          contactType: msg.recipientContact.includes("@") ? "email" : "phone",
-          totalSent: 1,
-          lastMessagedAt: msg.sentAt,
-          lastOpenedAt: msg.openedAt,
-        });
-      }
+  // Fetch recipients (debounced by search)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      getRecipients(searchQuery || undefined)
+        .then((data) => {
+          setRecipients(data);
+          setLoaded(true);
+        })
+        .catch(() => setLoaded(true));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch messages for selected contact
+  useEffect(() => {
+    if (!selectedContact) {
+      setContactMessages([]);
+      return;
     }
-    // Sort by most recently messaged
-    return Array.from(map.values()).sort(
-      (a, b) => b.lastMessagedAt.localeCompare(a.lastMessagedAt)
-    );
-  }, [messages]);
-
-  const filtered = useMemo(() => {
-    if (!searchQuery) return recipients;
-    const q = searchQuery.toLowerCase();
-    return recipients.filter((r) => r.contact.toLowerCase().includes(q));
-  }, [recipients, searchQuery]);
-
-  // Messages for the selected contact
-  const contactMessages = useMemo(() => {
-    if (!selectedContact) return [];
-    return messages
-      .filter((m) => m.recipientContact === selectedContact)
-      .sort((a, b) => b.sentAt.localeCompare(a.sentAt));
-  }, [messages, selectedContact]);
+    getMessagesForContact(selectedContact)
+      .then(setContactMessages)
+      .catch(() => {});
+  }, [selectedContact]);
 
   return (
     <>
@@ -85,12 +65,14 @@ export default function RecipientsPage() {
             className="h-12 border-2 border-gray-200 bg-gray-50 text-base focus:border-purple-400 focus:bg-white"
           />
 
-          {filtered.length === 0 ? (
+          {recipients.length === 0 ? (
             <div className="flex h-48 items-center justify-center rounded-lg border border-dashed">
               <p className="text-sm text-muted-foreground">
-                {recipients.length === 0
-                  ? "No messages sent yet. Recipients appear here automatically after you send."
-                  : "No recipients match your search."}
+                {!loaded
+                  ? "Loading..."
+                  : searchQuery
+                    ? "No recipients match your search."
+                    : "No messages sent yet. Recipients appear here automatically after you send."}
               </p>
             </div>
           ) : (
@@ -106,7 +88,7 @@ export default function RecipientsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((r) => (
+                  {recipients.map((r) => (
                     <TableRow
                       key={r.contact}
                       className={`cursor-pointer ${
@@ -129,9 +111,11 @@ export default function RecipientsPage() {
                           {r.contactType === "email" ? "Email" : "SMS"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">{r.totalSent}</TableCell>
+                      <TableCell className="text-right">{r.messageCount}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {new Date(r.lastMessagedAt).toLocaleDateString()}
+                        {r.lastMessagedAt
+                          ? new Date(r.lastMessagedAt).toLocaleDateString()
+                          : "—"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {r.lastOpenedAt
@@ -165,39 +149,42 @@ export default function RecipientsPage() {
                 Send History
               </h3>
               <div className="space-y-3">
-                {contactMessages.map((msg) => (
-                  <div key={msg.id} className="rounded-lg border p-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">
-                        {msg.contentBlocks.map((b) => b.title).join(", ")}
-                      </span>
-                      <StatusBadge status={msg.status} />
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {new Date(msg.sentAt).toLocaleDateString()}{" "}
-                      {new Date(msg.sentAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}{" "}
-                      via {msg.deliveryChannel === "email" ? "Email" : "SMS"}
-                    </div>
-                    {msg.openedAt && (
-                      <p className="mt-1 text-xs text-green-600">
-                        Opened{" "}
-                        {new Date(msg.openedAt).toLocaleDateString()}{" "}
-                        {new Date(msg.openedAt).toLocaleTimeString([], {
+                {contactMessages.map((msg) => {
+                  const blocks = msg.contentBlocks as Array<{ content_item_id: string; order: number }> | null;
+                  return (
+                    <div key={msg.id} className="rounded-lg border p-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">
+                          {blocks?.length ?? 0} content item{(blocks?.length ?? 0) !== 1 ? "s" : ""}
+                        </span>
+                        <StatusBadge status={msg.status} />
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {msg.sentAt ? new Date(msg.sentAt).toLocaleDateString() : "—"}{" "}
+                        {msg.sentAt ? new Date(msg.sentAt).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
-                        })}
-                      </p>
-                    )}
-                    {msg.status === "failed" && (
-                      <p className="mt-1 text-xs text-red-600">
-                        Delivery failed
-                      </p>
-                    )}
-                  </div>
-                ))}
+                        }) : ""}{" "}
+                        via {msg.deliveryChannel === "email" ? "Email" : "SMS"}
+                      </div>
+                      {msg.openedAt && (
+                        <p className="mt-1 text-xs text-green-600">
+                          Opened{" "}
+                          {new Date(msg.openedAt).toLocaleDateString()}{" "}
+                          {new Date(msg.openedAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      )}
+                      {msg.status === "failed" && (
+                        <p className="mt-1 text-xs text-red-600">
+                          Delivery failed
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

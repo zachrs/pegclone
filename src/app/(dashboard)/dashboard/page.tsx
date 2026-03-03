@@ -1,25 +1,27 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useMessagesStore } from "@/lib/hooks/use-messages-store";
 import { useSendCart } from "@/lib/hooks/use-send-cart";
-import { useLibraryStore } from "@/lib/hooks/use-library-store";
+import { getAnalytics, type AnalyticsData } from "@/lib/actions/analytics";
 
 export default function DashboardPage() {
-  const { messages } = useMessagesStore();
   const { items: cartItems } = useSendCart();
-  const { orgContent } = useLibraryStore();
+  const [data, setData] = useState<AnalyticsData | null>(null);
 
-  const delivered = messages.filter((m) => m.status === "delivered").length;
-  const opened = messages.filter((m) => m.openedAt !== null).length;
-  const failed = messages.filter((m) => m.status === "failed").length;
-  const openRate =
-    delivered > 0 ? Math.round((opened / delivered) * 100) : 0;
+  useEffect(() => {
+    getAnalytics("all")
+      .then(setData)
+      .catch(() => {});
+  }, []);
 
-  const recentMessages = messages.slice(0, 5);
+  const totalSent = data?.totalSent ?? 0;
+  const delivered = data?.totalDelivered ?? 0;
+  const failed = data?.totalFailed ?? 0;
+  const openRate = data?.openRate ?? 0;
+  const recentMessages = data?.recentMessages ?? [];
 
   return (
     <>
@@ -38,10 +40,10 @@ export default function DashboardPage() {
 
           {/* Quick stats */}
           <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatCard label="Messages Sent" value={messages.length} />
+            <StatCard label="Messages Sent" value={totalSent} />
             <StatCard label="Delivered" value={delivered} color="green" />
             <StatCard label="Open Rate" value={`${openRate}%`} color="purple" />
-            <StatCard label="Library Items" value={orgContent.length} color="blue" />
+            <StatCard label="Failed" value={failed} color={failed > 0 ? "red" : undefined} />
           </div>
 
           {/* Quick actions */}
@@ -102,11 +104,11 @@ export default function DashboardPage() {
             </div>
             {recentMessages.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                No messages sent yet. Start by browsing the Library!
+                {data === null ? "Loading..." : "No messages sent yet. Start by browsing the Library!"}
               </p>
             ) : (
               <div className="space-y-2">
-                {recentMessages.map((msg) => (
+                {recentMessages.slice(0, 5).map((msg) => (
                   <div
                     key={msg.id}
                     className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
@@ -183,7 +185,9 @@ function StatCard({
         ? "text-purple-700"
         : color === "blue"
           ? "text-blue-600"
-          : "text-foreground";
+          : color === "red"
+            ? "text-red-600"
+            : "text-foreground";
 
   return (
     <div className="rounded-lg border bg-white p-4">

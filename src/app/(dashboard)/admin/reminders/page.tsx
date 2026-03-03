@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,18 +12,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAdminStore } from "@/lib/hooks/use-admin-store";
+import { getReminderSettings, updateReminderSettings } from "@/lib/actions/admin";
 import { toast } from "sonner";
 
 export default function AdminRemindersPage() {
-  const { reminders, updateReminders } = useAdminStore();
-  const [enabled, setEnabled] = useState(reminders.enabled);
-  const [defaultMax, setDefaultMax] = useState(reminders.defaultMax);
-  const [intervalHours, setIntervalHours] = useState(
-    reminders.defaultIntervalHours
-  );
-  const handleSave = () => {
-    updateReminders({
+  const [enabled, setEnabled] = useState(true);
+  const [defaultMax, setDefaultMax] = useState(3);
+  const [intervalHours, setIntervalHours] = useState(24);
+
+  useEffect(() => {
+    getReminderSettings()
+      .then((settings) => {
+        setEnabled(settings.enabled);
+        setDefaultMax(settings.defaultMax);
+        setIntervalHours(settings.defaultIntervalHours);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = async () => {
+    await updateReminderSettings({
       enabled,
       defaultMax,
       defaultIntervalHours: intervalHours,
@@ -66,29 +74,16 @@ export default function AdminRemindersPage() {
           </section>
 
           {/* Configuration */}
-          <section
-            className={`rounded-lg border bg-white p-6 transition-opacity ${
-              !enabled ? "pointer-events-none opacity-40" : ""
-            }`}
-          >
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Default Configuration
-            </h3>
+          <section className={`rounded-lg border bg-white p-6 transition-opacity ${!enabled ? "pointer-events-none opacity-40" : ""}`}>
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Default Configuration</h3>
             <p className="mb-6 text-sm text-muted-foreground">
-              These defaults apply to all outgoing messages. Individual users can
-              override these at send time.
+              These defaults apply to all outgoing messages. Individual users can override these at send time.
             </p>
-
             <div className="grid gap-6 sm:grid-cols-2">
               <div>
                 <Label>Max Reminders Per Message</Label>
-                <Select
-                  value={String(defaultMax)}
-                  onValueChange={(v) => setDefaultMax(Number(v))}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={String(defaultMax)} onValueChange={(v) => setDefaultMax(Number(v))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0">0 (disabled)</SelectItem>
                     <SelectItem value="1">1 reminder</SelectItem>
@@ -98,83 +93,47 @@ export default function AdminRemindersPage() {
                     <SelectItem value="5">5 reminders</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Reminders stop when the patient opens the message or the max
-                  is reached.
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Reminders stop when the patient opens the message or the max is reached.</p>
               </div>
-
               <div>
                 <Label>Hours Between Reminders</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={168}
-                  value={intervalHours}
-                  onChange={(e) => setIntervalHours(Number(e.target.value))}
-                  className="mt-1"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Minimum 1 hour, maximum 168 hours (7 days). Default is 24.
-                </p>
+                <Input type="number" min={1} max={168} value={intervalHours} onChange={(e) => setIntervalHours(Number(e.target.value))} className="mt-1" />
+                <p className="mt-1 text-xs text-muted-foreground">Minimum 1 hour, maximum 168 hours (7 days). Default is 24.</p>
               </div>
             </div>
           </section>
 
           {/* How it works */}
           <section className="rounded-lg border bg-white p-6">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              How Reminders Work
-            </h3>
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">How Reminders Work</h3>
             <div className="space-y-3 text-sm text-muted-foreground">
               <div className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">
-                  1
-                </span>
-                <p>
-                  A message is sent to a patient via SMS or email.
-                </p>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">1</span>
+                <p>A message is sent to a patient via SMS or email.</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">
-                  2
-                </span>
-                <p>
-                  After {intervalHours} hours, the system checks if the patient
-                  has opened the message.
-                </p>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">2</span>
+                <p>After {intervalHours} hours, the system checks if the patient has opened the message.</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">
-                  3
-                </span>
-                <p>
-                  If not opened, a reminder is sent via the same channel. This
-                  repeats up to {defaultMax} times.
-                </p>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">3</span>
+                <p>If not opened, a reminder is sent via the same channel. This repeats up to {defaultMax} times.</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-semibold text-green-700">
-                  ✓
-                </span>
-                <p>
-                  Reminders stop immediately once the patient opens the message.
-                </p>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-semibold text-green-700">✓</span>
+                <p>Reminders stop immediately once the patient opens the message.</p>
               </div>
             </div>
           </section>
 
           {/* Reminder message preview */}
           <section className="rounded-lg border bg-white p-6">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Reminder Message Preview
-            </h3>
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Reminder Message Preview</h3>
             <div className="space-y-3">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">SMS</p>
                 <div className="mt-1 rounded-lg bg-gray-50 p-3 font-mono text-sm">
-                  Acme Women&apos;s Health: A reminder that Dr. Sarah Mitchell has
-                  sent you health information. https://peg.app/m/abc123
+                  Acme Women&apos;s Health: A reminder that Dr. Sarah Mitchell has sent you health information. https://peg.app/m/abc123
                 </div>
               </div>
               <div>
@@ -186,7 +145,6 @@ export default function AdminRemindersPage() {
             </div>
           </section>
 
-          {/* Save */}
           <div className="flex items-center justify-end">
             <Button onClick={handleSave}>Save Reminder Settings</Button>
           </div>
