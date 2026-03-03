@@ -1,4 +1,33 @@
-export { auth as middleware } from "@/lib/auth";
+import { auth } from "@/lib/auth";
+import { NextResponse } from "next/server";
+
+export default auth((req) => {
+  const { nextUrl } = req;
+  const session = req.auth;
+
+  // Not logged in: redirect to login
+  if (!session) {
+    return NextResponse.redirect(new URL("/login", nextUrl.origin));
+  }
+
+  // MFA pending: redirect to /mfa-verify (but don't loop if already there)
+  if (
+    session.user?.mfaPending &&
+    !nextUrl.pathname.startsWith("/mfa-verify")
+  ) {
+    return NextResponse.redirect(new URL("/mfa-verify", nextUrl.origin));
+  }
+
+  // Authenticated and MFA complete: prevent visiting /mfa-verify
+  if (
+    !session.user?.mfaPending &&
+    nextUrl.pathname.startsWith("/mfa-verify")
+  ) {
+    return NextResponse.redirect(new URL("/library", nextUrl.origin));
+  }
+
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: [
@@ -14,5 +43,6 @@ export const config = {
      */
     "/(dashboard)(.*)",
     "/(super-admin)(.*)",
+    "/mfa-verify",
   ],
 };

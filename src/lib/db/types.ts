@@ -8,6 +8,7 @@ import type {
   bulkSends,
   folders,
   folderItems,
+  mfaCodes,
 } from "@/drizzle/schema";
 
 // Inferred select types (what you get back from queries)
@@ -31,6 +32,8 @@ export type NewMessageEvent = typeof messageEvents.$inferInsert;
 export type NewBulkSend = typeof bulkSends.$inferInsert;
 export type NewFolder = typeof folders.$inferInsert;
 export type NewFolderItem = typeof folderItems.$inferInsert;
+export type MfaCode = typeof mfaCodes.$inferSelect;
+export type NewMfaCode = typeof mfaCodes.$inferInsert;
 
 // User roles
 export type UserRole = "super_admin" | "cs_rep" | "org_user" | "provider";

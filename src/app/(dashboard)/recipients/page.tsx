@@ -63,7 +63,7 @@ export default function RecipientsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search recipients by email or phone"
-            className="h-12 border-2 border-gray-200 bg-gray-50 text-base focus:border-purple-400 focus:bg-white"
+            className="h-12 border-2 border-gray-200 bg-gray-50 text-base focus:border-teal-400 focus:bg-white"
           />
 
           {recipients.length === 0 ? (
@@ -96,7 +96,7 @@ export default function RecipientsPage() {
                       role="button"
                       aria-label={`View details for ${r.contact}`}
                       className={`cursor-pointer ${
-                        selectedContact === r.contact ? "bg-purple-50" : ""
+                        selectedContact === r.contact ? "bg-teal-50" : ""
                       }`}
                       onClick={() => setSelectedContact(r.contact)}
                       onKeyDown={(e) => {

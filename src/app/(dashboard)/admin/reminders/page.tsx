@@ -61,7 +61,7 @@ export default function AdminRemindersPage() {
                 aria-checked={enabled}
                 aria-label="Toggle automated reminders"
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  enabled ? "bg-purple-600" : "bg-gray-200"
+                  enabled ? "bg-teal-700" : "bg-gray-200"
                 }`}
                 onClick={() => setEnabled(!enabled)}
               >
@@ -109,15 +109,15 @@ export default function AdminRemindersPage() {
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">How Reminders Work</h2>
             <div className="space-y-3 text-sm text-muted-foreground">
               <div className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">1</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">1</span>
                 <p>A message is sent to a patient via SMS or email.</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">2</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">2</span>
                 <p>After {intervalHours} hours, the system checks if the patient has opened the message.</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">3</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">3</span>
                 <p>If not opened, a reminder is sent via the same channel. This repeats up to {defaultMax} times.</p>
               </div>
               <div className="flex items-start gap-3">

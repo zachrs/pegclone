@@ -1,9 +1,11 @@
 import NextAuth from "next-auth";
-import Keycloak from "next-auth/providers/keycloak";
+import Credentials from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 import { users } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import type { UserRole } from "@/lib/db/types";
+import { isMfaRequired, sendMfaCode, hasRecentVerification } from "./mfa";
 
 declare module "next-auth" {
   interface Session {
@@ -15,55 +17,110 @@ declare module "next-auth" {
       isAdmin: boolean;
       tenantId: string;
       image?: string | null;
+      mfaPending: boolean;
     };
   }
 }
 
-// Augment the JWT type from next-auth
 declare module "next-auth" {
   interface JWT {
     pegUserId?: string;
     pegRole?: UserRole;
     pegIsAdmin?: boolean;
     pegTenantId?: string;
+    pegMfaPending?: boolean;
+    pegEmail?: string;
   }
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
-    Keycloak({
-      clientId: process.env.AUTH_KEYCLOAK_ID!,
-      clientSecret: process.env.AUTH_KEYCLOAK_SECRET!,
-      issuer: process.env.AUTH_KEYCLOAK_ISSUER!,
+    Credentials({
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email as string | undefined;
+        const password = credentials?.password as string | undefined;
+        if (!email || !password) return null;
+
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        if (!user || !user.isActive) return null;
+
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return null;
+
+        // Activate on first login if not yet activated
+        if (!user.activatedAt) {
+          await db
+            .update(users)
+            .set({ activatedAt: new Date(), updatedAt: new Date() })
+            .where(eq(users.id, user.id));
+        }
+
+        // Check if MFA is required
+        const mfaNeeded = await isMfaRequired(user.id, user.tenantId);
+
+        if (mfaNeeded) {
+          await sendMfaCode(user.id, user.tenantId, user.email);
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.fullName,
+          pegRole: user.role,
+          pegIsAdmin: user.isAdmin,
+          pegTenantId: user.tenantId,
+          pegMfaPending: mfaNeeded,
+          pegEmail: user.email,
+        };
+      },
     }),
   ],
   callbacks: {
-    async jwt({ token, account, profile }) {
-      // On first sign-in, look up the PEG user by Keycloak sub
-      if (account && profile?.sub) {
-        const pegUser = await db
-          .select()
-          .from(users)
-          .where(eq(users.keycloakSub, profile.sub))
-          .limit(1);
+    async jwt({ token, user, trigger }) {
+      // On sign-in, persist PEG fields into the JWT
+      if (user) {
+        token.pegUserId = user.id;
+        token.pegRole = (user as Record<string, unknown>).pegRole as UserRole;
+        token.pegIsAdmin = (user as Record<string, unknown>)
+          .pegIsAdmin as boolean;
+        token.pegTenantId = (user as Record<string, unknown>)
+          .pegTenantId as string;
+        token.pegMfaPending = (user as Record<string, unknown>)
+          .pegMfaPending as boolean;
+        token.pegEmail = (user as Record<string, unknown>)
+          .pegEmail as string;
+      }
 
-        if (pegUser[0]) {
-          token.pegUserId = pegUser[0].id;
-          token.pegRole = pegUser[0].role;
-          token.pegIsAdmin = pegUser[0].isAdmin;
-          token.pegTenantId = pegUser[0].tenantId;
+      // On session update (after MFA verification), verify against DB
+      if (trigger === "update" && token.pegMfaPending) {
+        // Check if MFA is still required (org may have disabled it)
+        const stillRequired = await isMfaRequired(
+          token.pegUserId as string,
+          token.pegTenantId as string
+        );
 
-          // Activate user on first login if not yet activated
-          if (!pegUser[0].activatedAt) {
-            await db
-              .update(users)
-              .set({ activatedAt: new Date(), updatedAt: new Date() })
-              .where(eq(users.id, pegUser[0].id));
-          }
+        if (!stillRequired) {
+          token.pegMfaPending = false;
         } else {
-          token.pegUserId = undefined;
+          // Check for a recently verified code in the DB
+          const verified = await hasRecentVerification(
+            token.pegUserId as string
+          );
+          if (verified) {
+            token.pegMfaPending = false;
+          }
         }
       }
+
       return token;
     },
     async session({ session, token }) {
@@ -72,25 +129,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = (token.pegRole as UserRole) ?? "org_user";
         session.user.isAdmin = (token.pegIsAdmin as boolean) ?? false;
         session.user.tenantId = token.pegTenantId as string;
+        session.user.mfaPending = (token.pegMfaPending as boolean) ?? false;
       }
       return session;
-    },
-    async signIn({ profile }) {
-      if (!profile?.sub) return false;
-
-      // Check if user exists in PEG
-      const pegUser = await db
-        .select({ id: users.id, isActive: users.isActive })
-        .from(users)
-        .where(eq(users.keycloakSub, profile.sub))
-        .limit(1);
-
-      // Deny access if user not provisioned or deactivated
-      if (!pegUser[0] || !pegUser[0].isActive) {
-        return false;
-      }
-
-      return true;
     },
   },
   pages: {

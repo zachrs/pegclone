@@ -245,13 +245,13 @@ export function SendWizard() {
         <div role="tabpanel" id="tabpanel-single" aria-labelledby="tab-single">
           <div className="mb-6">
             <label htmlFor="send-contact" className="mb-2 block text-sm font-medium">Email or Mobile Phone (U.S. Only)</label>
-            <Input id="send-contact" placeholder="example@email.com, 888-555-5555" value={contact} onChange={(e) => setContact(e.target.value)} className="h-12 border-2 border-gray-200 text-base focus:border-purple-400" />
+            <Input id="send-contact" placeholder="example@email.com, 888-555-5555" value={contact} onChange={(e) => setContact(e.target.value)} className="h-12 border-2 border-gray-200 text-base focus:border-teal-400" />
             {contact.trim() && isValid && <p className="mt-1.5 text-xs text-muted-foreground">Will send via {isEmail ? "email" : "SMS"}</p>}
             {contact.trim() && !isValid && <p className="mt-1.5 text-xs text-red-500">Enter a valid email address or phone number</p>}
           </div>
           <div className="flex items-center justify-between">
             <Button variant="outline" onClick={() => { window.location.href = "/library"; }}>Keep Adding</Button>
-            <Button className="bg-purple-700 hover:bg-purple-800" onClick={handleSend} disabled={!isValid || sending}>
+            <Button className="bg-teal-700 hover:bg-teal-800" onClick={handleSend} disabled={!isValid || sending}>
               {sending ? "Sending..." : "Send"}
             </Button>
           </div>
@@ -265,7 +265,7 @@ export function SendWizard() {
             <div className="mb-6">
               <label htmlFor="csv-upload" className="mb-2 block text-sm font-medium">Upload CSV File</label>
               <div
-                className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 py-10 transition-colors hover:border-purple-300"
+                className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 py-10 transition-colors hover:border-teal-300"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file && file.name.endsWith(".csv")) handleBulkUpload(file); }}
               >
@@ -315,7 +315,7 @@ export function SendWizard() {
           )}
           <div className="flex items-center justify-between">
             <Button variant="outline" onClick={() => { window.location.href = "/library"; }}>Keep Adding</Button>
-            <Button className="bg-purple-700 hover:bg-purple-800" onClick={handleBulkSend} disabled={!bulkFile || bulkPreview.length < 2 || sending}>
+            <Button className="bg-teal-700 hover:bg-teal-800" onClick={handleBulkSend} disabled={!bulkFile || bulkPreview.length < 2 || sending}>
               {sending ? "Sending..." : `Send to ${Math.max(0, bulkPreview.length - 1)} Recipients`}
             </Button>
           </div>
@@ -328,10 +328,10 @@ export function SendWizard() {
           <div className="mb-6 rounded-lg border bg-gray-50 p-4">
             <h3 className="font-medium">How QR Code Sending Works</h3>
             <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-              <li className="flex gap-2"><span className="shrink-0 text-purple-600">1.</span>A single shareable link is created for the selected content.</li>
-              <li className="flex gap-2"><span className="shrink-0 text-purple-600">2.</span>A QR code is generated that points to this link.</li>
-              <li className="flex gap-2"><span className="shrink-0 text-purple-600">3.</span>Download or print the QR code and display it in your office.</li>
-              <li className="flex gap-2"><span className="shrink-0 text-purple-600">4.</span>Any patient can scan it to access the materials — no login needed.</li>
+              <li className="flex gap-2"><span className="shrink-0 text-teal-700">1.</span>A single shareable link is created for the selected content.</li>
+              <li className="flex gap-2"><span className="shrink-0 text-teal-700">2.</span>A QR code is generated that points to this link.</li>
+              <li className="flex gap-2"><span className="shrink-0 text-teal-700">3.</span>Download or print the QR code and display it in your office.</li>
+              <li className="flex gap-2"><span className="shrink-0 text-teal-700">4.</span>Any patient can scan it to access the materials — no login needed.</li>
             </ul>
             <p className="mt-3 text-xs text-muted-foreground">
               Note: QR code sends track aggregate scan count only. Individual recipient tracking and reminders are not available.
@@ -339,7 +339,7 @@ export function SendWizard() {
           </div>
           <div className="flex items-center justify-between">
             <Button variant="outline" onClick={() => { window.location.href = "/library"; }}>Keep Adding</Button>
-            <Button className="bg-purple-700 hover:bg-purple-800" onClick={handleQrGenerate} disabled={sending}>
+            <Button className="bg-teal-700 hover:bg-teal-800" onClick={handleQrGenerate} disabled={sending}>
               {sending ? "Generating..." : "Generate QR Code"}
             </Button>
           </div>

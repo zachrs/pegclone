@@ -5,6 +5,7 @@ import { organizations, users, folders } from "@/drizzle/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
+import bcrypt from "bcryptjs";
 import type { UserRole } from "@/lib/db/types";
 
 // ── User Management ─────────────────────────────────────────────────────
@@ -23,17 +24,19 @@ export async function getOrgUsers() {
 export async function createUser(params: {
   fullName: string;
   email: string;
+  password: string;
   role: UserRole;
   isAdmin: boolean;
   title?: string;
 }) {
   const session = await requireSession();
+  const passwordHash = await bcrypt.hash(params.password, 10);
 
   const [user] = await db
     .insert(users)
     .values({
       tenantId: session.user.tenantId,
-      keycloakSub: `pending-${crypto.randomUUID()}`, // placeholder until Keycloak account created
+      passwordHash,
       email: params.email,
       fullName: params.fullName,
       role: params.role,
@@ -45,6 +48,17 @@ export async function createUser(params: {
     .returning();
 
   return user;
+}
+
+export async function resetUserPassword(userId: string, newPassword: string) {
+  const session = await requireSession();
+  const tenant = withTenant(session.user.tenantId);
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  await db
+    .update(users)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(and(eq(users.id, userId), tenant.eq(users.tenantId)));
 }
 
 export async function updateUser(
@@ -219,6 +233,47 @@ export async function updateMessageTemplates(params: {
           sms: params.sms,
           email_subject: params.emailSubject,
           email_body: params.emailBody,
+        },
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(organizations.id, session.user.tenantId));
+}
+
+// ── MFA / Security Settings ─────────────────────────────────────────────
+
+export async function getMfaSettings() {
+  const session = await requireSession();
+
+  const [org] = await db
+    .select({ settings: organizations.settings })
+    .from(organizations)
+    .where(eq(organizations.id, session.user.tenantId))
+    .limit(1);
+
+  return {
+    required: org?.settings?.mfa?.required ?? false,
+  };
+}
+
+export async function updateMfaSettings(params: { required: boolean }) {
+  const session = await requireSession();
+
+  const [org] = await db
+    .select({ settings: organizations.settings })
+    .from(organizations)
+    .where(eq(organizations.id, session.user.tenantId))
+    .limit(1);
+
+  const currentSettings = org?.settings ?? {};
+
+  await db
+    .update(organizations)
+    .set({
+      settings: {
+        ...currentSettings,
+        mfa: {
+          required: params.required,
         },
       },
       updatedAt: new Date(),

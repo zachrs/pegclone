@@ -6,21 +6,15 @@
  * Prerequisites:
  *   - Postgres running (docker compose up -d)
  *   - Tables created (pnpm db:push)
- *   - Keycloak running with peg-realm imported
  *
- * The keycloak_sub values here must match the Keycloak user IDs.
- * After Keycloak boots, get real sub values with:
- *   curl -s http://localhost:8080/admin/realms/peg/users \
- *     -H "Authorization: Bearer $(curl -s -d 'client_id=admin-cli&username=admin&password=admin&grant_type=password' \
- *     http://localhost:8080/realms/master/protocol/openid-connect/token | jq -r .access_token)" | jq '.[].id'
- *
- * For initial dev, we use placeholder subs that get replaced on first real login.
+ * All seed users get the password "password123" for local development.
  */
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "@/drizzle/schema";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 
 const connectionString = process.env.DATABASE_URL ?? "postgres://peg:peg@localhost:5432/peg";
 const sql = postgres(connectionString, { max: 1 });
@@ -67,7 +61,9 @@ async function seed() {
   console.log("  Organizations created");
 
   // ── Users ─────────────────────────────────────────────────────────────
-  // keycloak_sub placeholders — replaced by real IDs on first OAuth login
+  // All seed users get password "password123" for local development
+  const devPasswordHash = await bcrypt.hash("password123", 10);
+
   const superAdminId = uuid();
   const providerSarahId = uuid();
   const adminJaneId = uuid();
@@ -78,7 +74,7 @@ async function seed() {
     {
       id: superAdminId,
       tenantId: acmeId,
-      keycloakSub: "placeholder-superadmin",
+      passwordHash: devPasswordHash,
       email: "superadmin@peg.test",
       fullName: "Super Admin",
       role: "super_admin",
@@ -89,7 +85,7 @@ async function seed() {
     {
       id: providerSarahId,
       tenantId: acmeId,
-      keycloakSub: "placeholder-provider",
+      passwordHash: devPasswordHash,
       email: "provider@acme.test",
       fullName: "Dr. Sarah Chen",
       role: "provider",
@@ -101,7 +97,7 @@ async function seed() {
     {
       id: adminJaneId,
       tenantId: acmeId,
-      keycloakSub: "placeholder-admin",
+      passwordHash: devPasswordHash,
       email: "admin@acme.test",
       fullName: "Jane Smith",
       role: "org_user",
@@ -113,7 +109,7 @@ async function seed() {
     {
       id: providerJamesId,
       tenantId: acmeId,
-      keycloakSub: `placeholder-james-${uuid()}`,
+      passwordHash: devPasswordHash,
       email: "james.lee@acme.test",
       fullName: "Dr. James Lee",
       role: "provider",
@@ -125,7 +121,7 @@ async function seed() {
     {
       id: orgUserMariaId,
       tenantId: acmeId,
-      keycloakSub: `placeholder-maria-${uuid()}`,
+      passwordHash: devPasswordHash,
       email: "maria.johnson@acme.test",
       fullName: "Maria Johnson",
       role: "org_user",

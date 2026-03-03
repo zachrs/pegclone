@@ -9,6 +9,7 @@ import {
   bulkSends,
   folders,
   folderItems,
+  mfaCodes,
 } from "./schema";
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
@@ -28,6 +29,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   sentMessages: many(messages),
   folders: many(folders),
   bulkSends: many(bulkSends),
+  mfaCodes: many(mfaCodes),
 }));
 
 export const recipientsRelations = relations(recipients, ({ one, many }) => ({
@@ -120,5 +122,16 @@ export const folderItemsRelations = relations(folderItems, ({ one }) => ({
   addedByUser: one(users, {
     fields: [folderItems.addedBy],
     references: [users.id],
+  }),
+}));
+
+export const mfaCodesRelations = relations(mfaCodes, ({ one }) => ({
+  user: one(users, {
+    fields: [mfaCodes.userId],
+    references: [users.id],
+  }),
+  organization: one(organizations, {
+    fields: [mfaCodes.tenantId],
+    references: [organizations.id],
   }),
 }));

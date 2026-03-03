@@ -87,6 +87,9 @@ export const organizations = pgTable("organizations", {
       email_subject: string;
       email_body: string;
     };
+    mfa?: {
+      required: boolean;
+    };
   }>(),
   smsSendCountMonth: integer("sms_send_count_month").default(0).notNull(),
   smsThrottled: boolean("sms_throttled").default(false).notNull(),
@@ -111,7 +114,7 @@ export const users = pgTable(
     tenantId: uuid("tenant_id")
       .references(() => organizations.id)
       .notNull(),
-    keycloakSub: text("keycloak_sub").unique().notNull(),
+    passwordHash: text("password_hash").notNull(),
     email: text("email").notNull(),
     fullName: text("full_name").notNull(),
     role: userRoleEnum("role").default("org_user").notNull(),
@@ -123,6 +126,7 @@ export const users = pgTable(
     activatedAt: timestamp("activated_at", { withTimezone: true }),
     deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
     settings: jsonb("settings").default({}),
+    mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -132,8 +136,8 @@ export const users = pgTable(
   },
   (table) => [
     uniqueIndex("users_tenant_email_idx").on(table.tenantId, table.email),
+    uniqueIndex("users_email_idx").on(table.email),
     index("users_tenant_id_idx").on(table.tenantId),
-    index("users_keycloak_sub_idx").on(table.keycloakSub),
   ]
 );
 
@@ -374,5 +378,30 @@ export const folderItems = pgTable(
       table.contentItemId
     ),
     index("folder_items_tenant_id_idx").on(table.tenantId),
+  ]
+);
+
+// ── MFA Codes ─────────────────────────────────────────────────────────────
+
+export const mfaCodes = pgTable(
+  "mfa_codes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id)
+      .notNull(),
+    tenantId: uuid("tenant_id")
+      .references(() => organizations.id)
+      .notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("mfa_codes_user_id_idx").on(table.userId),
+    index("mfa_codes_user_expires_idx").on(table.userId, table.expiresAt),
   ]
 );

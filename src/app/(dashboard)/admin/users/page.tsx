@@ -34,6 +34,7 @@ import {
   updateUser as updateUserAction,
   deactivateUser as deactivateUserAction,
   reactivateUser as reactivateUserAction,
+  resetUserPassword as resetUserPasswordAction,
 } from "@/lib/actions/admin";
 import type { UserRole } from "@/lib/db/types";
 import { toast } from "sonner";
@@ -54,6 +55,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [editUser, setEditUser] = useState<OrgUser | null>(null);
+  const [resetUser, setResetUser] = useState<OrgUser | null>(null);
   const [search, setSearch] = useState("");
 
   const loadUsers = useCallback(() => {
@@ -120,7 +122,7 @@ export default function AdminUsersPage() {
             <p className="text-xs text-muted-foreground">Active Users</p>
           </div>
           <div className="rounded-lg border bg-white p-4">
-            <p className="text-2xl font-bold text-purple-700">{providerCount}</p>
+            <p className="text-2xl font-bold text-teal-700">{providerCount}</p>
             <p className="text-xs text-muted-foreground">Providers</p>
           </div>
           <div className="rounded-lg border bg-white p-4">
@@ -174,11 +176,12 @@ export default function AdminUsersPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {u.activatedAt ? new Date(u.activatedAt).toLocaleDateString() : "—"}
+                    {u.activatedAt ? new Date(u.activatedAt).toLocaleDateString() : "\u2014"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => setEditUser(u)}>Edit</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setResetUser(u)}>Reset Password</Button>
                       {u.isActive ? (
                         <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeactivate(u)}>
                           Deactivate
@@ -224,13 +227,25 @@ export default function AdminUsersPage() {
           }}
         />
       )}
+
+      {resetUser && (
+        <ResetPasswordDialog
+          user={resetUser}
+          onClose={() => setResetUser(null)}
+          onReset={async (newPassword) => {
+            await resetUserPasswordAction(resetUser.id, newPassword);
+            setResetUser(null);
+            toast.success(`Password reset for ${resetUser.fullName}`);
+          }}
+        />
+      )}
     </>
   );
 }
 
 function RoleBadge({ role }: { role: UserRole }) {
   const styles: Record<string, string> = {
-    provider: "bg-purple-100 text-purple-700",
+    provider: "bg-teal-100 text-teal-700",
     org_user: "bg-gray-100 text-gray-700",
     cs_rep: "bg-yellow-100 text-yellow-700",
     super_admin: "bg-red-100 text-red-700",
@@ -239,17 +254,18 @@ function RoleBadge({ role }: { role: UserRole }) {
   return <Badge className={`${styles[role] ?? "bg-gray-100 text-gray-700"} hover:${styles[role]}`}>{labels[role] ?? role}</Badge>;
 }
 
-function CreateUserDialog({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (p: { fullName: string; email: string; role: UserRole; isAdmin: boolean; title?: string }) => Promise<void> }) {
+function CreateUserDialog({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (p: { fullName: string; email: string; password: string; role: UserRole; isAdmin: boolean; title?: string }) => Promise<void> }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("org_user");
   const [isAdmin, setIsAdmin] = useState(false);
   const [title, setTitle] = useState("");
 
   const handleSubmit = async () => {
-    if (!fullName.trim() || !email.trim()) return;
-    await onCreate({ fullName: fullName.trim(), email: email.trim(), role, isAdmin, title: title.trim() || undefined });
-    setFullName(""); setEmail(""); setRole("org_user"); setIsAdmin(false); setTitle("");
+    if (!fullName.trim() || !email.trim() || password.length < 8) return;
+    await onCreate({ fullName: fullName.trim(), email: email.trim(), password, role, isAdmin, title: title.trim() || undefined });
+    setFullName(""); setEmail(""); setPassword(""); setRole("org_user"); setIsAdmin(false); setTitle("");
     onClose();
   };
 
@@ -260,6 +276,13 @@ function CreateUserDialog({ open, onClose, onCreate }: { open: boolean; onClose:
         <div className="space-y-4 py-2">
           <div><Label htmlFor="create-fullname">Full Name</Label><Input id="create-fullname" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Jane Smith" /></div>
           <div><Label htmlFor="create-email">Email</Label><Input id="create-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane.smith@org.com" /></div>
+          <div>
+            <Label htmlFor="create-password">Password</Label>
+            <Input id="create-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimum 8 characters" autoComplete="new-password" />
+            {password.length > 0 && password.length < 8 && (
+              <p className="mt-1 text-xs text-red-500">Password must be at least 8 characters</p>
+            )}
+          </div>
           <div><Label htmlFor="create-title">Title (optional)</Label><Input id="create-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="OB/GYN, MD" /></div>
           <div>
             <Label htmlFor="create-role">Role</Label>
@@ -279,7 +302,7 @@ function CreateUserDialog({ open, onClose, onCreate }: { open: boolean; onClose:
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!fullName.trim() || !email.trim()}>Create</Button>
+          <Button onClick={handleSubmit} disabled={!fullName.trim() || !email.trim() || password.length < 8}>Create</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -294,7 +317,7 @@ function EditUserDialog({ user, onClose, onSave }: { user: OrgUser; onClose: () 
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Edit User — {user.fullName}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Edit User \u2014 {user.fullName}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-2">
           <div><Label className="text-muted-foreground">Email</Label><p className="font-mono text-sm">{user.email}</p></div>
           <div><Label htmlFor="edit-title">Title</Label><Input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="OB/GYN, MD" /></div>
@@ -317,6 +340,55 @@ function EditUserDialog({ user, onClose, onSave }: { user: OrgUser; onClose: () 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={() => onSave({ role, isAdmin, title: title.trim() || null })}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ResetPasswordDialog({ user, onClose, onReset }: { user: OrgUser; onClose: () => void; onReset: (password: string) => Promise<void> }) {
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (password.length < 8) return;
+    setLoading(true);
+    try {
+      await onReset(password);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Reset Password \u2014 {user.fullName}</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            Set a new password for <span className="font-medium text-foreground">{user.email}</span>.
+            The user will need to use this new password on their next login.
+          </p>
+          <div>
+            <Label htmlFor="reset-password">New Password</Label>
+            <Input
+              id="reset-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Minimum 8 characters"
+              autoComplete="new-password"
+            />
+            {password.length > 0 && password.length < 8 && (
+              <p className="mt-1 text-xs text-red-500">Password must be at least 8 characters</p>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={password.length < 8 || loading}>
+            {loading ? "Resetting..." : "Reset Password"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

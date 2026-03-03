@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import {
   getMessageTemplates,
   updateMessageTemplates,
+  getMfaSettings,
+  updateMfaSettings,
   publishFolder,
   unpublishFolder,
 } from "@/lib/actions/admin";
@@ -28,6 +30,8 @@ export default function AdminSettingsPage() {
   const [emailBody, setEmailBody] = useState("[Organization Name] has sent you a message. Click the link below to view it: [link]");
   const [linkExpDays, setLinkExpDays] = useState(30);
   const [optOutFooter, setOptOutFooter] = useState(true);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaSaving, setMfaSaving] = useState(false);
   const [allFolders, setAllFolders] = useState<FolderRow[]>([]);
 
   const loadFolders = useCallback(() => {
@@ -40,6 +44,9 @@ export default function AdminSettingsPage() {
     getMessageTemplates()
       .then((t) => { setSms(t.sms); setEmailSubject(t.emailSubject); setEmailBody(t.emailBody); })
       .catch(() => {});
+    getMfaSettings()
+      .then((s) => setMfaRequired(s.required))
+      .catch(() => {});
     loadFolders();
   }, [loadFolders]);
 
@@ -49,6 +56,18 @@ export default function AdminSettingsPage() {
   };
 
   const saveDelivery = () => { toast.success("Delivery settings saved"); };
+
+  const saveMfaSettings = async () => {
+    setMfaSaving(true);
+    try {
+      await updateMfaSettings({ required: mfaRequired });
+      toast.success("Security settings saved");
+    } catch {
+      toast.error("Failed to save security settings");
+    } finally {
+      setMfaSaving(false);
+    }
+  };
 
   const handlePublish = async (folderId: string) => {
     await publishFolder(folderId);
@@ -123,6 +142,32 @@ export default function AdminSettingsPage() {
             </div>
           </section>
 
+          {/* Security Settings */}
+          <section className="rounded-lg border bg-white p-6">
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Security Settings</h2>
+            <p className="mb-6 text-sm text-muted-foreground">Configure authentication and security requirements for your organization.</p>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="mfa-required"
+                  checked={mfaRequired}
+                  onChange={(e) => setMfaRequired(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="mfa-required" className="text-sm">Require Two-Factor Authentication</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When enabled, all users in your organization must verify a 6-digit code sent to their email each time they sign in. Users cannot disable MFA while this setting is active.
+              </p>
+            </div>
+            <div className="mt-4 flex items-center justify-end">
+              <Button onClick={saveMfaSettings} size="sm" disabled={mfaSaving}>
+                {mfaSaving ? "Saving..." : "Save Security Settings"}
+              </Button>
+            </div>
+          </section>
+
           {/* Team Folder Management */}
           <section className="rounded-lg border bg-white p-6">
             <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Team Folder Management</h2>
@@ -159,7 +204,7 @@ export default function AdminSettingsPage() {
                         <span className="text-sm font-medium">{f.name}</span>
                         <Badge variant="outline">Personal</Badge>
                       </div>
-                      <Button variant="ghost" size="sm" className="text-purple-600 hover:text-purple-700" onClick={() => handlePublish(f.id)}>Publish to Team</Button>
+                      <Button variant="ghost" size="sm" className="text-teal-700 hover:text-teal-700" onClick={() => handlePublish(f.id)}>Publish to Team</Button>
                     </div>
                   ))}
                 </div>

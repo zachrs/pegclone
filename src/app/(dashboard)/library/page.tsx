@@ -153,7 +153,7 @@ export default function LibraryPage() {
 
           {activeFolderObj && (
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-purple-700">Viewing: {activeFolderObj.name}</span>
+              <span className="text-sm font-medium text-teal-700">Viewing: {activeFolderObj.name}</span>
               <button className="text-xs text-muted-foreground underline" onClick={() => useLibraryStore.getState().setActiveFolder(null)}>Clear</button>
             </div>
           )}

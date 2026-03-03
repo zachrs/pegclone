@@ -43,7 +43,7 @@ export function FolderSidebar() {
       <Button
         variant="ghost"
         size="sm"
-        className="justify-start gap-2 text-sm font-medium text-purple-700"
+        className="justify-start gap-2 text-sm font-medium text-teal-700"
         onClick={() => setActiveFolder(null)}
       >
         <BrowseIcon />
@@ -52,7 +52,7 @@ export function FolderSidebar() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="sm" className="justify-start gap-2 text-sm font-medium text-purple-700">
+          <Button variant="ghost" size="sm" className="justify-start gap-2 text-sm font-medium text-teal-700">
             <FolderPlusIcon />
             Create New Folder
           </Button>
@@ -101,7 +101,7 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-        isActive ? "bg-purple-100 font-semibold text-purple-800" : "text-purple-700 hover:bg-purple-50"
+        isActive ? "bg-teal-100 font-semibold text-teal-800" : "text-teal-700 hover:bg-teal-50"
       )}
     >
       <FolderIcon type={folder.type} />
@@ -112,14 +112,14 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
 
 function FolderIcon({ type }: { type: string }) {
   if (type === "favorites") return <span className="flex h-5 w-5 items-center justify-center rounded bg-red-100 text-xs">&#10084;</span>;
-  if (type === "team") return <span className="flex h-5 w-5 items-center justify-center rounded bg-purple-100 text-[10px]">&#128101;</span>;
+  if (type === "team") return <span className="flex h-5 w-5 items-center justify-center rounded bg-teal-100 text-[10px]">&#128101;</span>;
   return <span className="flex h-5 w-5 items-center justify-center rounded bg-orange-100 text-xs">&#128193;</span>;
 }
 
 function BrowseIcon() {
-  return <span className="flex h-5 w-5 items-center justify-center rounded bg-purple-100 text-xs">&#128218;</span>;
+  return <span className="flex h-5 w-5 items-center justify-center rounded bg-teal-100 text-xs">&#128218;</span>;
 }
 
 function FolderPlusIcon() {
-  return <span className="flex h-5 w-5 items-center justify-center rounded bg-purple-100 text-xs">&#65291;</span>;
+  return <span className="flex h-5 w-5 items-center justify-center rounded bg-teal-100 text-xs">&#65291;</span>;
 }

@@ -15,34 +15,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - peg-network
-
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.1
-    container_name: peg-keycloak
-    command: start-dev --import-realm
-    environment:
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/peg
-      KC_DB_USERNAME: peg
-      KC_DB_PASSWORD: peg
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      KC_HTTP_PORT: 8080
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./docker/keycloak:/opt/keycloak/data/import
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - peg-network
 
 volumes:
   peg-postgres-data:
-
-networks:
-  peg-network:
-    driver: bridge

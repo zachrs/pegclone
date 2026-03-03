@@ -42,7 +42,7 @@ export default function DashboardPage() {
           <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
             <StatCard label="Messages Sent" value={totalSent} />
             <StatCard label="Delivered" value={delivered} color="green" />
-            <StatCard label="Open Rate" value={`${openRate}%`} color="purple" />
+            <StatCard label="Open Rate" value={`${openRate}%`} color="teal" />
             <StatCard label="Failed" value={failed} color={failed > 0 ? "red" : undefined} />
           </div>
 
@@ -97,7 +97,7 @@ export default function DashboardPage() {
               </h2>
               <Link
                 href="/recipients"
-                className="text-sm text-purple-600 hover:underline"
+                className="text-sm text-teal-700 hover:underline"
               >
                 View all
               </Link>
@@ -118,7 +118,7 @@ export default function DashboardPage() {
                         variant="outline"
                         className={
                           msg.deliveryChannel === "email"
-                            ? "border-purple-200 bg-purple-50 text-purple-700"
+                            ? "border-teal-200 bg-teal-50 text-teal-700"
                             : msg.deliveryChannel === "qr_code"
                               ? "border-yellow-200 bg-yellow-50 text-yellow-700"
                               : "border-green-200 bg-green-50 text-green-700"
@@ -181,8 +181,8 @@ function StatCard({
   const colorClass =
     color === "green"
       ? "text-green-600"
-      : color === "purple"
-        ? "text-purple-700"
+      : color === "teal"
+        ? "text-teal-700"
         : color === "blue"
           ? "text-blue-600"
           : color === "red"
@@ -213,9 +213,9 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="group flex gap-4 rounded-lg border bg-white p-5 transition-colors hover:border-purple-200 hover:bg-purple-50/30"
+      className="group flex gap-4 rounded-lg border bg-white p-5 transition-colors hover:border-teal-200 hover:bg-teal-50/30"
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-700 group-hover:bg-purple-200">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-700 group-hover:bg-teal-200">
         {icon}
       </div>
       <div className="flex-1">

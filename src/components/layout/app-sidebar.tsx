@@ -45,6 +45,11 @@ const NAV_ITEMS = [
     href: "/analytics",
     permission: "analytics.personal" as const,
   },
+  {
+    label: "Profile",
+    href: "/profile",
+    permission: "library.view" as const,
+  },
 ];
 
 const ADMIN_ITEMS = [

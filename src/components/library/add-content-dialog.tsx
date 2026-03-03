@@ -31,7 +31,7 @@ export function AddContentDialog() {
         <Button
           variant="outline"
           size="sm"
-          className="gap-1.5 border-purple-300 text-purple-700 hover:bg-purple-50"
+          className="gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50"
         >
           <span className="text-lg leading-none">+</span>
           Add Content
@@ -49,8 +49,8 @@ export function AddContentDialog() {
             size="sm"
             className={
               mode === "link"
-                ? "bg-purple-700 hover:bg-purple-800"
-                : "text-purple-700"
+                ? "bg-teal-700 hover:bg-teal-800"
+                : "text-teal-700"
             }
             onClick={() => setMode("link")}
           >
@@ -61,8 +61,8 @@ export function AddContentDialog() {
             size="sm"
             className={
               mode === "pdf"
-                ? "bg-purple-700 hover:bg-purple-800"
-                : "text-purple-700"
+                ? "bg-teal-700 hover:bg-teal-800"
+                : "text-teal-700"
             }
             onClick={() => setMode("pdf")}
           >
@@ -142,7 +142,7 @@ function AddLinkForm({ onClose }: { onClose: () => void }) {
           Cancel
         </Button>
         <Button
-          className="bg-purple-700 hover:bg-purple-800"
+          className="bg-teal-700 hover:bg-teal-800"
           onClick={handleSubmit}
           disabled={!title.trim() || !url.trim()}
         >
@@ -190,7 +190,7 @@ function UploadPdfForm({ onClose }: { onClose: () => void }) {
       <div>
         <label className="mb-1 block text-sm font-medium">PDF File</label>
         <div className="flex items-center gap-2">
-          <label className="cursor-pointer rounded-md border border-dashed border-gray-300 px-4 py-3 text-sm text-muted-foreground hover:border-purple-400 hover:bg-purple-50 flex-1 text-center">
+          <label className="cursor-pointer rounded-md border border-dashed border-gray-300 px-4 py-3 text-sm text-muted-foreground hover:border-teal-400 hover:bg-teal-50 flex-1 text-center">
             {fileName || "Click to select a PDF file"}
             <input
               type="file"
@@ -231,7 +231,7 @@ function UploadPdfForm({ onClose }: { onClose: () => void }) {
           Cancel
         </Button>
         <Button
-          className="bg-purple-700 hover:bg-purple-800"
+          className="bg-teal-700 hover:bg-teal-800"
           onClick={handleSubmit}
           disabled={!title.trim() || !fileName}
         >

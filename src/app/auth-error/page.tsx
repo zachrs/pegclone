@@ -15,8 +15,8 @@ export default function AuthErrorPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Access Denied</CardTitle>
           <CardDescription>
-            Your account has not been provisioned in Patient Education Genius, or
-            it has been deactivated. Please contact your administrator.
+            Your account could not be found or has been deactivated. Please
+            contact your organization administrator.
           </CardDescription>
         </CardHeader>
         <CardContent>

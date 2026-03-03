@@ -20,13 +20,13 @@ export function SendCartBar() {
 
   return (
     <>
-      <div className="flex items-center gap-3 rounded-lg border-2 border-purple-300 bg-purple-50 px-4 py-2">
-        <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+      <div className="flex items-center gap-3 rounded-lg border-2 border-teal-300 bg-teal-50 px-4 py-2">
+        <Badge variant="secondary" className="bg-teal-100 text-teal-800">
           {items.length} Selected
         </Badge>
         <Button
           size="sm"
-          className="bg-purple-700 hover:bg-purple-800"
+          className="bg-teal-700 hover:bg-teal-800"
           onClick={() => setSendDialogOpen(true)}
         >
           Send
@@ -34,7 +34,7 @@ export function SendCartBar() {
         <Button
           size="sm"
           variant="ghost"
-          className="text-purple-700"
+          className="text-teal-700"
           onClick={clear}
         >
           Clear
@@ -89,7 +89,7 @@ function SendDialog({
               Cancel
             </Button>
             <Button
-              className="bg-purple-700 hover:bg-purple-800"
+              className="bg-teal-700 hover:bg-teal-800"
               onClick={handleSend}
             >
               Send

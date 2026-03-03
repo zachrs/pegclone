@@ -7,7 +7,7 @@ A multi-tenant SaaS platform that enables healthcare providers to send patient e
 - **Framework:** Next.js 16 (App Router), TypeScript (strict)
 - **UI:** Tailwind CSS v4, shadcn/ui
 - **Database:** PostgreSQL 16, Drizzle ORM
-- **Auth:** Keycloak (OIDC) via Auth.js v5
+- **Auth:** Built-in email/password via Auth.js v5
 - **Job Queue:** pg-boss (Postgres-backed)
 - **SMS:** Twilio (stubbed for local dev)
 - **Email:** Mailgun (stubbed for local dev)
@@ -29,11 +29,12 @@ pnpm install
 # Copy env file
 cp .env.local.example .env.local
 
-# Start Postgres + Keycloak
+# Start Postgres
 pnpm docker:up
 
-# Push DB schema
+# Push DB schema and seed test data
 pnpm db:push
+pnpm db:seed
 
 # Start dev server
 pnpm dev
@@ -41,17 +42,15 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Keycloak admin console: [http://localhost:8080](http://localhost:8080) (admin/admin)
-
-### Test Users (Keycloak)
+### Test Users
 
 | Email | Password | Role |
 |---|---|---|
-| superadmin@peg.test | password | super_admin |
-| provider@acme.test | password | provider |
-| admin@acme.test | password | org_user (is_admin) |
-
-> Note: Users must be provisioned in PEG's `users` table before they can log in. Run `pnpm db:seed` to create matching records.
+| superadmin@peg.test | password123 | super_admin |
+| provider@acme.test | password123 | provider (admin) |
+| admin@acme.test | password123 | org_user (admin) |
+| james.lee@acme.test | password123 | provider |
+| maria.johnson@acme.test | password123 | org_user |
 
 ## Scripts
 
@@ -110,7 +109,7 @@ src/
 ## Architecture
 
 - **Multi-tenant:** All org-specific data scoped by `tenant_id`. Enforced via `withTenant()` helper.
-- **Auth:** Keycloak handles login; PEG manages roles/permissions internally.
+- **Auth:** Built-in email/password auth. Org admins manage users directly from the admin panel.
 - **Delivery:** All SMS/email sent asynchronously via pg-boss job queue.
 - **Patient viewer:** Public, token-gated page. No login required.
 - **PDFs:** Proxied through backend — no direct storage URLs exposed.

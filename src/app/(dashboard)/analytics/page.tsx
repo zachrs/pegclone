@@ -73,7 +73,7 @@ export default function AnalyticsPage() {
         <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
           <MetricCard label="Messages Sent" value={stats.totalSent} />
           <MetricCard label="Delivered" value={stats.totalDelivered} color="green" />
-          <MetricCard label="Opened" value={stats.totalOpened} color="purple" />
+          <MetricCard label="Opened" value={stats.totalOpened} color="teal" />
           <MetricCard label="Open Rate" value={`${stats.openRate}%`} color="blue" />
         </div>
 
@@ -118,7 +118,7 @@ export default function AnalyticsPage() {
               </div>
               <div className="flex justify-between border-t pt-3">
                 <dt className="text-muted-foreground">Open rate</dt>
-                <dd className="font-semibold text-purple-700">{stats.openRate}%</dd>
+                <dd className="font-semibold text-teal-700">{stats.openRate}%</dd>
               </div>
             </dl>
           </div>
@@ -136,7 +136,7 @@ export default function AnalyticsPage() {
               <div className="space-y-2">
                 {stats.topContent.map((item, i) => (
                   <div key={item.title} className="flex items-center gap-3 rounded-md border px-3 py-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-700">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">
                       {i + 1}
                     </span>
                     <span className="flex-1 text-sm font-medium">{item.title}</span>
@@ -162,7 +162,7 @@ export default function AnalyticsPage() {
                       variant="outline"
                       className={
                         msg.deliveryChannel === "email"
-                          ? "border-purple-200 bg-purple-50 text-purple-700"
+                          ? "border-teal-200 bg-teal-50 text-teal-700"
                           : "border-green-200 bg-green-50 text-green-700"
                       }
                     >
@@ -190,7 +190,7 @@ export default function AnalyticsPage() {
 
 function MetricCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   const colorClass =
-    color === "green" ? "text-green-600" : color === "purple" ? "text-purple-700" : color === "blue" ? "text-blue-600" : "text-foreground";
+    color === "green" ? "text-green-600" : color === "teal" ? "text-teal-700" : color === "blue" ? "text-blue-600" : "text-foreground";
   return (
     <div className="rounded-lg border bg-white p-4">
       <p className={`text-3xl font-bold ${colorClass}`}>{value}</p>
