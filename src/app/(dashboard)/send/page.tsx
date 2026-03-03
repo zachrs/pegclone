@@ -1,15 +1,14 @@
+"use client";
+
 import { Header } from "@/components/layout/header";
+import { SendWizard } from "@/components/send/send-wizard";
 
 export default function SendPage() {
   return (
     <>
       <Header title="Send" />
-      <main className="flex-1 p-6">
-        <div className="flex items-center justify-center h-64 rounded-lg border border-dashed">
-          <p className="text-muted-foreground">
-            Send flow will be implemented in Phase 3
-          </p>
-        </div>
+      <main className="flex-1 overflow-auto p-6">
+        <SendWizard />
       </main>
     </>
   );
