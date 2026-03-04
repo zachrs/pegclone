@@ -46,7 +46,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email || !password) return null;
 
         const [user] = await db
-          .select()
+          .select({
+            id: users.id,
+            email: users.email,
+            fullName: users.fullName,
+            passwordHash: users.passwordHash,
+            role: users.role,
+            isAdmin: users.isAdmin,
+            isActive: users.isActive,
+            activatedAt: users.activatedAt,
+            tenantId: users.tenantId,
+          })
           .from(users)
           .where(eq(users.email, email))
           .limit(1);
