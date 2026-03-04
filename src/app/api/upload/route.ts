@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Size check (read body)
-  const body = request.body;
-  if (!body) {
+  // Read body into buffer so it can be retried if needed
+  const bodyBytes = await request.arrayBuffer();
+  if (!bodyBytes || bodyBytes.byteLength === 0) {
     return NextResponse.json({ error: "No file body" }, { status: 400 });
   }
 
@@ -63,11 +63,26 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const blob = await put(path, body, {
-      access: "public",
-      addRandomSuffix: false,
-      token,
-    });
+    // Try public access first; if the store is private, fall back without it
+    let blob;
+    try {
+      blob = await put(path, bodyBytes, {
+        access: "public",
+        addRandomSuffix: false,
+        token,
+      });
+    } catch (publicErr) {
+      const msg = publicErr instanceof Error ? publicErr.message : "";
+      if (msg.includes("public access") || msg.includes("private")) {
+        blob = await put(path, bodyBytes, {
+          access: "private",
+          addRandomSuffix: false,
+          token,
+        });
+      } else {
+        throw publicErr;
+      }
+    }
 
     return NextResponse.json({
       url: blob.url,

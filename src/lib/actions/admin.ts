@@ -854,7 +854,17 @@ export async function getOrgUsersForSuperAdmin(orgId: string) {
   requirePermission(session.user.role, session.user.isAdmin, "super_admin.orgs");
 
   return db
-    .select()
+    .select({
+      id: users.id,
+      fullName: users.fullName,
+      email: users.email,
+      role: users.role,
+      isAdmin: users.isAdmin,
+      isActive: users.isActive,
+      title: users.title,
+      activatedAt: users.activatedAt,
+      deactivatedAt: users.deactivatedAt,
+    })
     .from(users)
     .where(eq(users.tenantId, orgId))
     .orderBy(users.fullName);
