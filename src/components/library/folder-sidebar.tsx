@@ -15,7 +15,6 @@ import { createFolder, renameFolder as renameFolderAction, deleteFolder as delet
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  BookOpen,
   FolderPlus,
   Heart,
   Users,
@@ -57,8 +56,8 @@ export function FolderSidebar() {
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )}
       >
-        <BookOpen className="h-4 w-4" />
-        Browse All
+        <Upload className="h-4 w-4" />
+        My Uploads
       </button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

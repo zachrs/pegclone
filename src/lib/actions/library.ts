@@ -47,6 +47,7 @@ export async function getSystemContent(query: string) {
           tenantId: null,
           algoliaObjectId: String(hit.objectID ?? ""),
           source: "system_library" as const,
+          sourceName: hit.source ? String(hit.source) : "PEG Library",
           title: String(hit.title ?? ""),
           description: hit.description ? String(hit.description) : null,
           type: (hit.type === "pdf" ? "pdf" : "link") as "pdf" | "link",

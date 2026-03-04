@@ -9,12 +9,11 @@ export function ContentTabs() {
   return (
     <Tabs
       value={activeTab}
-      onValueChange={(v) => setActiveTab(v as "all" | "system" | "org")}
+      onValueChange={(v) => setActiveTab(v as "system" | "org")}
     >
       <TabsList>
-        <TabsTrigger value="all">All Content</TabsTrigger>
-        <TabsTrigger value="system">PEG Library</TabsTrigger>
         <TabsTrigger value="org">Your Content</TabsTrigger>
+        <TabsTrigger value="system">PEG Library</TabsTrigger>
       </TabsList>
     </Tabs>
   );

@@ -23,13 +23,12 @@ export default function LibraryPage() {
     contentVersion,
   } = useLibraryStore();
 
-  // DB-backed state (fix #23: include createdAt)
+  // DB-backed state
   const [orgContent, setOrgContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
-  const [systemContent, setSystemContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
+  const [systemContent, setSystemContent] = useState<Array<{ id: string; title: string; source: string; sourceName?: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
   const [folders, setFolders] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [folderItemIds, setFolderItemIds] = useState<Set<string>>(new Set());
 
-  // Use favorites from Zustand store (synced reactively)
   const favoriteIds = favorites;
 
   // Load favorites from DB on mount
@@ -41,7 +40,7 @@ export default function LibraryPage() {
       .catch(() => {});
   }, []);
 
-  // Load org content (refetch when contentVersion changes, e.g. after adding content)
+  // Load org content (refetch when contentVersion changes)
   useEffect(() => {
     getOrgContent()
       .then((data) => setOrgContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>))
@@ -53,9 +52,6 @@ export default function LibraryPage() {
     getFolders()
       .then((data) => {
         setFolders(data as Array<{ id: string; name: string; type: string }>);
-        // Also update the Zustand store so FolderSidebar has the data
-        const store = useLibraryStore.getState();
-        // Sync folders to store for FolderSidebar
         useLibraryStore.setState({
           folders: data.map((f) => ({
             id: f.id,
@@ -67,15 +63,15 @@ export default function LibraryPage() {
       .catch(() => {});
   }, []);
 
-  // Load system content based on search query
+  // Load system content based on search query (only when on system tab)
   useEffect(() => {
-    if (activeTab === "org" || !searchQuery) {
+    if (activeTab !== "system" || !searchQuery) {
       setSystemContent([]);
       return;
     }
     const timer = setTimeout(() => {
       getSystemContent(searchQuery)
-        .then((data) => setSystemContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>))
+        .then((data) => setSystemContent(data as Array<{ id: string; title: string; source: string; sourceName?: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>))
         .catch(() => {});
     }, 300);
     return () => clearTimeout(timer);
@@ -96,7 +92,6 @@ export default function LibraryPage() {
 
   // Filter org content
   const filteredOrgContent = useMemo(() => {
-    if (activeTab === "system") return [];
     let items = orgContent;
 
     // Filter by folder
@@ -106,8 +101,8 @@ export default function LibraryPage() {
       items = items.filter((item) => folderItemIds.has(item.id));
     }
 
-    // Filter by search
-    if (searchQuery) {
+    // Filter by search (only when on org tab)
+    if (activeTab === "org" && searchQuery) {
       const q = searchQuery.toLowerCase();
       items = items.filter(
         (item) =>
@@ -128,41 +123,42 @@ export default function LibraryPage() {
   }, [orgContent, activeFolder, searchQuery, activeTab, folderItemIds, favoriteIds]);
 
   const filteredSystemContent = useMemo(() => {
-    if (activeTab === "org") return [];
     return systemContent.map((item) => ({
       id: item.id,
       title: item.title,
-      source: item.source === "system_library" ? "PEG Library" : (item.source ?? "PEG Library"),
+      source: (item as { sourceName?: string }).sourceName ?? "PEG Library",
       type: item.type as "pdf" | "link",
       url: item.url ?? undefined,
       isFavorite: favoriteIds.has(item.id),
       createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : undefined,
+      algoliaObjectId: (item as { algoliaObjectId?: string }).algoliaObjectId,
     }));
-  }, [systemContent, activeTab, favoriteIds]);
+  }, [systemContent, favoriteIds]);
 
   // Get active folder name for display
   const activeFolderObj = activeFolder
     ? folders.find((f) => f.id === activeFolder)
     : null;
 
+  const currentItems = activeTab === "org" ? filteredOrgContent : filteredSystemContent;
+  const searchPlaceholder = activeTab === "org"
+    ? "Search your content..."
+    : "Search over 40,000 patient education resources";
+
   return (
     <>
       <Header title="Content Library" />
       <main className="flex flex-1 overflow-hidden">
-        <aside className="hidden border-r bg-card p-4 md:block">
-          <FolderSidebar />
-        </aside>
+        {activeTab === "org" && (
+          <aside className="hidden border-r bg-card p-4 md:block">
+            <FolderSidebar />
+          </aside>
+        )}
 
         <div className="flex flex-1 flex-col gap-4 overflow-auto p-6 animate-fade-in-up">
-          <div className="flex items-center gap-4">
-            <div className="flex-1"><ContentSearchBar /></div>
-            <SendCartBar />
-          </div>
-
           <div className="flex items-center justify-between">
             <ContentTabs />
             <div className="flex items-center gap-2">
-              {/* View mode toggle */}
               <div className="flex items-center rounded-lg border bg-gray-50 p-0.5">
                 <button
                   onClick={() => setViewMode("grid")}
@@ -190,40 +186,31 @@ export default function LibraryPage() {
                   </svg>
                 </button>
               </div>
-              <AddContentDialog />
+              {activeTab === "org" && <AddContentDialog />}
+              <SendCartBar />
             </div>
           </div>
 
-          {activeFolderObj && (
+          <div className="flex items-center gap-4">
+            <div className="flex-1"><ContentSearchBar placeholder={searchPlaceholder} /></div>
+          </div>
+
+          {activeTab === "org" && activeFolderObj && (
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-teal-700">Viewing: {activeFolderObj.name}</span>
               <button className="text-xs text-muted-foreground underline" onClick={() => useLibraryStore.getState().setActiveFolder(null)}>Clear</button>
             </div>
           )}
 
-          {(activeTab === "all" || activeTab === "org") && filteredOrgContent.length > 0 && (
+          {currentItems.length > 0 ? (
             <section>
-              {activeTab === "all" && <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Your Content</h2>}
               {viewMode === "grid" ? (
-                <ContentGrid items={filteredOrgContent} />
+                <ContentGrid items={currentItems} />
               ) : (
-                <ContentList items={filteredOrgContent} />
+                <ContentList items={currentItems} />
               )}
             </section>
-          )}
-
-          {(activeTab === "all" || activeTab === "system") && filteredSystemContent.length > 0 && (
-            <section>
-              {activeTab === "all" && <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">PEG Library</h2>}
-              {viewMode === "grid" ? (
-                <ContentGrid items={filteredSystemContent} />
-              ) : (
-                <ContentList items={filteredSystemContent} />
-              )}
-            </section>
-          )}
-
-          {filteredOrgContent.length === 0 && filteredSystemContent.length === 0 && (
+          ) : (
             <div className="flex h-56 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-muted/20 animate-fade-in-up">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/60">
@@ -233,10 +220,18 @@ export default function LibraryPage() {
               </div>
               <div className="text-center">
                 <p className="font-medium text-muted-foreground">
-                  {searchQuery ? `No results for "${searchQuery}"` : "No content yet"}
+                  {searchQuery
+                    ? `No results for "${searchQuery}"`
+                    : activeTab === "system"
+                      ? "Search the PEG Library to find patient education resources"
+                      : "No content yet"}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground/70">
-                  {searchQuery ? "Try a different search term or browse all content" : "Upload your first content item or browse the PEG Library"}
+                  {searchQuery
+                    ? "Try a different search term"
+                    : activeTab === "system"
+                      ? "Type a topic above to get started"
+                      : "Upload your first content item to get started"}
                 </p>
               </div>
             </div>

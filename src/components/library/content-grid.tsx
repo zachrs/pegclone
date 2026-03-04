@@ -9,6 +9,7 @@ interface ContentGridItem {
   type: "pdf" | "link";
   url?: string;
   isFavorite?: boolean;
+  algoliaObjectId?: string;
 }
 
 interface ContentGridProps {
@@ -46,6 +47,7 @@ export function ContentGrid({ items, emptyMessage }: ContentGridProps) {
             type={item.type}
             url={item.url}
             isFavorite={item.isFavorite}
+            algoliaObjectId={item.algoliaObjectId}
           />
         </div>
       ))}
