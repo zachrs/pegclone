@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useSendCart, type CartItem } from "@/lib/hooks/use-send-cart";
+import { Check } from "lucide-react";
 
 export function SendCartBar() {
   const { items, clear } = useSendCart();
@@ -20,13 +21,12 @@ export function SendCartBar() {
 
   return (
     <>
-      <div className="flex items-center gap-3 rounded-lg border-2 border-teal-300 bg-teal-50 px-4 py-2">
-        <Badge variant="secondary" className="bg-teal-100 text-teal-800">
+      <div className="flex items-center gap-3 rounded-xl border bg-primary/5 px-4 py-2">
+        <Badge variant="secondary" className="bg-primary/10 text-primary">
           {items.length} Selected
         </Badge>
         <Button
           size="sm"
-          className="bg-teal-700 hover:bg-teal-800"
           onClick={() => setSendDialogOpen(true)}
         >
           Send
@@ -34,7 +34,7 @@ export function SendCartBar() {
         <Button
           size="sm"
           variant="ghost"
-          className="text-teal-700"
+          className="text-muted-foreground"
           onClick={clear}
         >
           Clear
@@ -63,7 +63,6 @@ function SendDialog({
   const [contact, setContact] = useState("");
 
   const handleSend = () => {
-    // Will wire to real send action when DB is available
     alert(
       `Sending ${items.length} item(s) to ${contact || "(no recipient entered)"}`
     );
@@ -80,7 +79,6 @@ function SendDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          {/* Action buttons */}
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Keep Adding
@@ -88,15 +86,11 @@ function SendDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              className="bg-teal-700 hover:bg-teal-800"
-              onClick={handleSend}
-            >
+            <Button onClick={handleSend}>
               Send
             </Button>
           </div>
 
-          {/* Recipient input */}
           <div>
             <label className="mb-1 block text-sm text-muted-foreground">
               Email or Mobile Phone (U.S. Only):
@@ -108,7 +102,6 @@ function SendDialog({
             />
           </div>
 
-          {/* Selected items */}
           <div>
             <p className="mb-2 text-center text-sm">
               The following item(s) will be sent to the recipient(s):
@@ -117,9 +110,9 @@ function SendDialog({
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-2 rounded-md bg-orange-50 px-3 py-1.5 text-sm"
+                  className="flex items-center gap-2 rounded-lg border bg-primary/5 px-3 py-1.5 text-sm"
                 >
-                  <span className="text-orange-600">✓</span>
+                  <Check className="h-3.5 w-3.5 text-primary" />
                   <span>{item.title}</span>
                 </div>
               ))}

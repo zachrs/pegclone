@@ -123,6 +123,7 @@ export async function updateBranding(params: {
   name: string;
   primaryColor: string;
   secondaryColor?: string | null;
+  logoUrl?: string | null;
   phone?: string;
   address?: string;
   website?: string;
@@ -144,6 +145,7 @@ export async function updateBranding(params: {
       name: params.name,
       primaryColor: params.primaryColor,
       secondaryColor: params.secondaryColor ?? null,
+      ...(params.logoUrl !== undefined ? { logoUrl: params.logoUrl } : {}),
       settings: {
         ...currentSettings,
         contact: {

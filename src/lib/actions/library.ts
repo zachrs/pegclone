@@ -68,6 +68,8 @@ export async function addOrgContent(params: {
   title: string;
   type: "pdf" | "link";
   url?: string;
+  storagePath?: string;
+  description?: string;
 }) {
   const session = await requireSession();
 
@@ -77,8 +79,10 @@ export async function addOrgContent(params: {
       tenantId: session.user.tenantId,
       source: "org_upload",
       title: params.title,
+      description: params.description ?? null,
       type: params.type,
       url: params.url,
+      storagePath: params.storagePath ?? null,
       isActive: true,
     })
     .returning();

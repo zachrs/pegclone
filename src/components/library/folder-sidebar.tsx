@@ -13,6 +13,13 @@ import {
 import { useLibraryStore, type LibraryFolder } from "@/lib/hooks/use-library-store";
 import { createFolder } from "@/lib/actions/library";
 import { cn } from "@/lib/utils";
+import {
+  BookOpen,
+  FolderPlus,
+  Heart,
+  Users,
+  Folder,
+} from "lucide-react";
 
 export function FolderSidebar() {
   const { folders, activeFolder, setActiveFolder } = useLibraryStore();
@@ -26,11 +33,9 @@ export function FolderSidebar() {
   const handleCreateFolder = async () => {
     if (newFolderName.trim()) {
       try {
-        const folder = await createFolder(newFolderName.trim());
-        // Add to local store
+        await createFolder(newFolderName.trim());
         useLibraryStore.getState().addFolder(newFolderName.trim());
       } catch {
-        // Fallback to local store
         useLibraryStore.getState().addFolder(newFolderName.trim());
       }
       setNewFolderName("");
@@ -39,23 +44,26 @@ export function FolderSidebar() {
   };
 
   return (
-    <div className="flex w-56 flex-col gap-1 border-r pr-4">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="justify-start gap-2 text-sm font-medium text-teal-700"
+    <div className="flex w-56 flex-col gap-0.5">
+      <button
         onClick={() => setActiveFolder(null)}
+        className={cn(
+          "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          !activeFolder
+            ? "bg-primary/10 text-primary"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
       >
-        <BrowseIcon />
-        Browse All Sources
-      </Button>
+        <BookOpen className="h-4 w-4" />
+        Browse All
+      </button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="sm" className="justify-start gap-2 text-sm font-medium text-teal-700">
-            <FolderPlusIcon />
-            Create New Folder
-          </Button>
+          <button className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            <FolderPlus className="h-4 w-4" />
+            New Folder
+          </button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader><DialogTitle>Create New Folder</DialogTitle></DialogHeader>
@@ -73,7 +81,9 @@ export function FolderSidebar() {
         </DialogContent>
       </Dialog>
 
-      <div className="my-2 h-px bg-border" />
+      {(favoritesFolder.length > 0 || personalFolders.length > 0) && (
+        <div className="my-2 h-px bg-border" />
+      )}
 
       {favoritesFolder.map((folder) => (
         <FolderButton key={folder.id} folder={folder} isActive={activeFolder === folder.id} onClick={() => setActiveFolder(folder.id)} />
@@ -86,6 +96,7 @@ export function FolderSidebar() {
       {teamFolders.length > 0 && (
         <>
           <div className="my-2 h-px bg-border" />
+          <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Team</p>
           {teamFolders.map((folder) => (
             <FolderButton key={folder.id} folder={folder} isActive={activeFolder === folder.id} onClick={() => setActiveFolder(folder.id)} />
           ))}
@@ -96,30 +107,20 @@ export function FolderSidebar() {
 }
 
 function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; isActive: boolean; onClick: () => void }) {
+  const Icon = folder.type === "favorites" ? Heart : folder.type === "team" ? Users : Folder;
+
   return (
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-        isActive ? "bg-teal-100 font-semibold text-teal-800" : "text-teal-700 hover:bg-teal-50"
+        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
+        isActive
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       )}
     >
-      <FolderIcon type={folder.type} />
+      <Icon className="h-4 w-4 shrink-0" />
       <span className="truncate">{folder.name}</span>
     </button>
   );
-}
-
-function FolderIcon({ type }: { type: string }) {
-  if (type === "favorites") return <span className="flex h-5 w-5 items-center justify-center rounded bg-red-100 text-xs">&#10084;</span>;
-  if (type === "team") return <span className="flex h-5 w-5 items-center justify-center rounded bg-teal-100 text-[10px]">&#128101;</span>;
-  return <span className="flex h-5 w-5 items-center justify-center rounded bg-orange-100 text-xs">&#128193;</span>;
-}
-
-function BrowseIcon() {
-  return <span className="flex h-5 w-5 items-center justify-center rounded bg-teal-100 text-xs">&#128218;</span>;
-}
-
-function FolderPlusIcon() {
-  return <span className="flex h-5 w-5 items-center justify-center rounded bg-teal-100 text-xs">&#65291;</span>;
 }

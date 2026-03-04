@@ -6,6 +6,16 @@ import { Header } from "@/components/layout/header";
 import { Badge } from "@/components/ui/badge";
 import { useSendCart } from "@/lib/hooks/use-send-cart";
 import { getAnalytics, type AnalyticsData } from "@/lib/actions/analytics";
+import {
+  BookOpen,
+  Send,
+  BarChart3,
+  CircleCheck,
+  CircleX,
+  Eye,
+  TrendingUp,
+  AlertTriangle,
+} from "lucide-react";
 
 export default function DashboardPage() {
   const { items: cartItems } = useSendCart();
@@ -28,9 +38,8 @@ export default function DashboardPage() {
       <Header title="Dashboard" />
       <main className="flex-1 overflow-auto p-6">
         <div className="mx-auto max-w-4xl">
-          {/* Welcome */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-2xl font-bold tracking-tight">
               Welcome to Patient Education Genius
             </h2>
             <p className="mt-1 text-muted-foreground">
@@ -40,10 +49,10 @@ export default function DashboardPage() {
 
           {/* Quick stats */}
           <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatCard label="Messages Sent" value={totalSent} />
-            <StatCard label="Delivered" value={delivered} color="green" />
-            <StatCard label="Open Rate" value={`${openRate}%`} color="teal" />
-            <StatCard label="Failed" value={failed} color={failed > 0 ? "red" : undefined} />
+            <StatCard label="Messages Sent" value={totalSent} icon={<Send className="h-4 w-4" />} loading={!data} />
+            <StatCard label="Delivered" value={delivered} icon={<CircleCheck className="h-4 w-4" />} color="green" loading={!data} />
+            <StatCard label="Open Rate" value={`${openRate}%`} icon={<TrendingUp className="h-4 w-4" />} color="teal" loading={!data} />
+            <StatCard label="Failed" value={failed} icon={<CircleX className="h-4 w-4" />} color={failed > 0 ? "red" : undefined} loading={!data} />
           </div>
 
           {/* Quick actions */}
@@ -52,12 +61,7 @@ export default function DashboardPage() {
               href="/library"
               title="Browse Library"
               description="Search 40,000+ patient education items or your org uploads"
-              icon={
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
-                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
-                </svg>
-              }
+              icon={<BookOpen className="h-5 w-5" />}
             />
             <QuickAction
               href="/send"
@@ -67,81 +71,74 @@ export default function DashboardPage() {
                   ? `${cartItems.length} item${cartItems.length !== 1 ? "s" : ""} in your cart — ready to send`
                   : "Select items from the library first"
               }
-              icon={
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M22 2L11 13" />
-                  <path d="M22 2l-7 20-4-9-9-4 20-7z" />
-                </svg>
-              }
+              icon={<Send className="h-5 w-5" />}
               badge={cartItems.length > 0 ? `${cartItems.length}` : undefined}
             />
             <QuickAction
               href="/analytics"
               title="View Analytics"
               description="Track delivery rates, opens, and engagement trends"
-              icon={
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <line x1="18" y1="20" x2="18" y2="10" />
-                  <line x1="12" y1="20" x2="12" y2="4" />
-                  <line x1="6" y1="20" x2="6" y2="14" />
-                </svg>
-              }
+              icon={<BarChart3 className="h-5 w-5" />}
             />
           </div>
 
           {/* Recent activity */}
-          <div className="rounded-lg border bg-white p-5">
+          <div className="rounded-xl border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Recent Messages
               </h2>
-              <Link
-                href="/recipients"
-                className="text-sm text-teal-700 hover:underline"
-              >
+              <Link href="/recipients" className="text-sm font-medium text-primary hover:underline">
                 View all
               </Link>
             </div>
-            {recentMessages.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                {data === null ? "Loading..." : "No messages sent yet. Start by browsing the Library!"}
-              </p>
+            {data === null ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-5 w-12 animate-pulse rounded bg-muted" />
+                      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                      <div className="h-4 w-14 animate-pulse rounded bg-muted" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : recentMessages.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-10 text-center">
+                <Send className="h-8 w-8 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">
+                  No messages sent yet. Start by browsing the Library!
+                </p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {recentMessages.slice(0, 5).map((msg) => (
                   <div
                     key={msg.id}
-                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                    className="flex items-center justify-between rounded-lg border px-3 py-2.5 text-sm transition-colors hover:bg-muted/30"
                   >
                     <div className="flex items-center gap-3">
                       <Badge
                         variant="outline"
                         className={
                           msg.deliveryChannel === "email"
-                            ? "border-teal-200 bg-teal-50 text-teal-700"
+                            ? "border-primary/20 bg-primary/5 text-primary"
                             : msg.deliveryChannel === "qr_code"
-                              ? "border-yellow-200 bg-yellow-50 text-yellow-700"
+                              ? "border-amber-200 bg-amber-50 text-amber-700"
                               : "border-green-200 bg-green-50 text-green-700"
                         }
                       >
-                        {msg.deliveryChannel === "email"
-                          ? "Email"
-                          : msg.deliveryChannel === "qr_code"
-                            ? "QR"
-                            : "SMS"}
+                        {msg.deliveryChannel === "email" ? "Email" : msg.deliveryChannel === "qr_code" ? "QR" : "SMS"}
                       </Badge>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {msg.recipientContact}
-                      </span>
+                      <span className="font-mono text-xs text-muted-foreground">{msg.recipientContact}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(msg.sentAt).toLocaleDateString()}
-                      </span>
-                      <StatusDot
-                        status={msg.status}
-                        opened={!!msg.openedAt}
-                      />
+                      <span className="text-xs text-muted-foreground">{new Date(msg.sentAt).toLocaleDateString()}</span>
+                      <StatusIndicator status={msg.status} opened={!!msg.openedAt} />
                     </div>
                   </div>
                 ))}
@@ -149,18 +146,17 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Failed messages alert */}
           {failed > 0 && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />
+            <div className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+              <div>
                 <p className="text-sm font-medium text-red-700">
                   {failed} message{failed !== 1 ? "s" : ""} failed to deliver
                 </p>
+                <p className="mt-0.5 text-xs text-red-600">
+                  Check the Recipients page for details on failed deliveries.
+                </p>
               </div>
-              <p className="mt-1 text-xs text-red-600">
-                Check the Recipients page for details on failed deliveries.
-              </p>
             </div>
           )}
         </div>
@@ -169,63 +165,39 @@ export default function DashboardPage() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string | number;
-  color?: string;
+function StatCard({ label, value, icon, color, loading }: {
+  label: string; value: string | number; icon: React.ReactNode; color?: string; loading?: boolean;
 }) {
-  const colorClass =
-    color === "green"
-      ? "text-green-600"
-      : color === "teal"
-        ? "text-teal-700"
-        : color === "blue"
-          ? "text-blue-600"
-          : color === "red"
-            ? "text-red-600"
-            : "text-foreground";
+  const colorClass = color === "green" ? "text-green-600" : color === "teal" ? "text-primary" : color === "red" ? "text-red-600" : "text-foreground";
+  const iconColor = color === "green" ? "text-green-500 bg-green-50" : color === "teal" ? "text-primary bg-primary/10" : color === "red" ? "text-red-500 bg-red-50" : "text-muted-foreground bg-muted";
 
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <p className={`text-3xl font-bold ${colorClass}`}>{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+    <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${iconColor}`}>{icon}</div>
+      </div>
+      {loading ? (
+        <div className="h-8 w-16 animate-pulse rounded bg-muted" />
+      ) : (
+        <p className={`text-2xl font-bold ${colorClass}`}>{value}</p>
+      )}
     </div>
   );
 }
 
-function QuickAction({
-  href,
-  title,
-  description,
-  icon,
-  badge,
-}: {
-  href: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  badge?: string;
+function QuickAction({ href, title, description, icon, badge }: {
+  href: string; title: string; description: string; icon: React.ReactNode; badge?: string;
 }) {
   return (
-    <Link
-      href={href}
-      className="group flex gap-4 rounded-lg border bg-white p-5 transition-colors hover:border-teal-200 hover:bg-teal-50/30"
-    >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-700 group-hover:bg-teal-200">
+    <Link href={href} className="group flex gap-4 rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-primary/20">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
         {icon}
       </div>
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold">{title}</h3>
-          {badge && (
-            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">
-              {badge}
-            </Badge>
-          )}
+          {badge && <Badge variant="secondary" className="text-xs">{badge}</Badge>}
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
       </div>
@@ -233,41 +205,9 @@ function QuickAction({
   );
 }
 
-function StatusDot({
-  status,
-  opened,
-}: {
-  status: string;
-  opened: boolean;
-}) {
-  if (opened) {
-    return (
-      <span className="flex items-center gap-1 text-xs text-green-600">
-        <span className="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />
-        Opened
-      </span>
-    );
-  }
-  if (status === "failed") {
-    return (
-      <span className="flex items-center gap-1 text-xs text-red-600">
-        <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />
-        Failed
-      </span>
-    );
-  }
-  if (status === "delivered") {
-    return (
-      <span className="flex items-center gap-1 text-xs text-yellow-600">
-        <span className="h-2 w-2 rounded-full bg-yellow-500" aria-hidden="true" />
-        Not opened
-      </span>
-    );
-  }
-  return (
-    <span className="flex items-center gap-1 text-xs text-gray-500">
-      <span className="h-2 w-2 rounded-full bg-gray-500" aria-hidden="true" />
-      {status}
-    </span>
-  );
+function StatusIndicator({ status, opened }: { status: string; opened: boolean }) {
+  if (opened) return <span className="flex items-center gap-1.5 text-xs font-medium text-green-600"><Eye className="h-3 w-3" />Opened</span>;
+  if (status === "failed") return <span className="flex items-center gap-1.5 text-xs font-medium text-red-600"><CircleX className="h-3 w-3" />Failed</span>;
+  if (status === "delivered") return <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600"><CircleCheck className="h-3 w-3" />Not opened</span>;
+  return <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-current" />{status}</span>;
 }
