@@ -40,7 +40,7 @@ interface LibraryState {
   setActiveTab: (tab: "system" | "org") => void;
   setViewMode: (mode: ViewMode) => void;
   toggleFavorite: (id: string, meta?: { title: string; type: "pdf" | "link"; url?: string; algoliaObjectId?: string }) => void;
-  addFolder: (name: string) => void;
+  addFolder: (name: string, type?: "personal" | "team") => void;
   renameFolder: (id: string, name: string) => void;
   deleteFolder: (id: string) => void;
   addOrgContent: (item: Omit<OrgContentItem, "id" | "createdAt" | "isFavorite">) => void;
@@ -182,11 +182,11 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     });
   },
 
-  addFolder: (name) =>
+  addFolder: (name, type = "personal") =>
     set((state) => ({
       folders: [
         ...state.folders,
-        { id: `folder-${nextId++}`, name, type: "personal" },
+        { id: `folder-${nextId++}`, name, type },
       ],
     })),
 

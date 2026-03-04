@@ -30,7 +30,6 @@ import {
   Building2,
   UserCog,
   Activity,
-  Globe,
 } from "lucide-react";
 
 const NAV_ITEMS = [

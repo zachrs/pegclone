@@ -95,7 +95,8 @@ export default function LibraryPage() {
 
   // Load folder items when a folder is selected
   useEffect(() => {
-    if (!activeFolder || activeFolder === "favorites") {
+    const folderType = activeFolder ? folders.find((f) => f.id === activeFolder)?.type : null;
+    if (!activeFolder || folderType === "favorites") {
       setFolderItemIds(new Set());
       return;
     }
@@ -106,12 +107,18 @@ export default function LibraryPage() {
       .catch(() => {});
   }, [activeFolder]);
 
+  // Determine if active folder is the favorites folder (by type, not hardcoded ID)
+  const activeFolderType = activeFolder
+    ? folders.find((f) => f.id === activeFolder)?.type
+    : null;
+  const isViewingFavorites = activeFolderType === "favorites";
+
   // Filter org content - includes uploads + favorited system items for "My Materials"
   const filteredOrgContent = useMemo(() => {
     let items = orgContent;
 
     // Filter by folder
-    if (activeFolder === "favorites") {
+    if (isViewingFavorites) {
       items = items.filter((item) => favoriteIds.has(item.id));
     } else if (activeFolder && folderItemIds.size > 0) {
       items = items.filter((item) => folderItemIds.has(item.id));
@@ -161,7 +168,7 @@ export default function LibraryPage() {
     }
 
     // When viewing Favorites folder, also include favorited system library items
-    if (activeFolder === "favorites") {
+    if (isViewingFavorites) {
       const orgIds = new Set(mapped.map((m) => m.id));
       const favSystemItems = favoritedContent
         .filter((f) => f.source === "system_library" && !orgIds.has(f.id))
@@ -184,7 +191,7 @@ export default function LibraryPage() {
     }
 
     return mapped;
-  }, [orgContent, activeFolder, searchQuery, folderItemIds, favoriteIds, favoritedContent, orgName]);
+  }, [orgContent, activeFolder, searchQuery, folderItemIds, favoriteIds, favoritedContent, orgName, isViewingFavorites]);
 
   const filteredSystemContent = useMemo(() => {
     return systemContent.map((item) => ({
@@ -203,6 +210,7 @@ export default function LibraryPage() {
   const activeFolderObj = activeFolder
     ? folders.find((f) => f.id === activeFolder)
     : null;
+  const isFavoritesFolder = activeFolderObj?.type === "favorites";
 
   const currentItems = activeTab === "org" ? filteredOrgContent : filteredSystemContent;
   const searchPlaceholder = activeTab === "system"
@@ -250,7 +258,7 @@ export default function LibraryPage() {
                   </svg>
                 </button>
               </div>
-              {activeTab === "org" && <AddContentDialog />}
+              {activeTab === "org" && !activeFolder && <AddContentDialog />}
               <SendCartBar />
             </div>
           </div>

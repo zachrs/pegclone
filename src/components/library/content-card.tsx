@@ -55,7 +55,7 @@ export function ContentCard({
         ) : (
           <LinkIcon className="h-3.5 w-3.5 text-blue-500" />
         )}
-        <span className="text-xs font-medium text-muted-foreground">{source}</span>
+        <span className="text-xs font-medium text-muted-foreground line-clamp-2 break-words">{source}</span>
         <Badge
           variant="outline"
           className={cn(

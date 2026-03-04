@@ -109,7 +109,7 @@ export function ContentList({ items, emptyMessage }: ContentListProps) {
                     ) : "Link"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{item.source}</TableCell>
+                <TableCell className="text-xs text-muted-foreground truncate max-w-[8rem]">{item.source}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {item.createdAt
                     ? new Date(item.createdAt).toLocaleDateString()
