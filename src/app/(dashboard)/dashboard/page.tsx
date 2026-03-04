@@ -37,7 +37,7 @@ export default function DashboardPage() {
     <>
       <Header title="Dashboard" />
       <main className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-4xl animate-fade-in-up">
           <div className="mb-8">
             <h2 className="text-2xl font-bold tracking-tight">
               Welcome to Patient Education Genius
@@ -83,7 +83,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Recent activity */}
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
+          <div className="rounded-xl border bg-card p-5 shadow-md">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Recent Messages
@@ -108,11 +108,14 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : recentMessages.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-10 text-center">
-                <Send className="h-8 w-8 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">
-                  No messages sent yet. Start by browsing the Library!
-                </p>
+              <div className="flex flex-col items-center gap-3 py-10 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <Send className="h-5 w-5 text-muted-foreground/50" />
+                </div>
+                <div>
+                  <p className="font-medium text-muted-foreground">No messages sent yet</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground/70">Start by browsing the Library and selecting content to send</p>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -172,7 +175,7 @@ function StatCard({ label, value, icon, color, loading }: {
   const iconColor = color === "green" ? "text-green-500 bg-green-50" : color === "teal" ? "text-primary bg-primary/10" : color === "red" ? "text-red-500 bg-red-50" : "text-muted-foreground bg-muted";
 
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
+    <div className="rounded-xl border bg-card p-4 shadow-md card-hover hover:shadow-lg hover:border-primary/20">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
         <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${iconColor}`}>{icon}</div>
@@ -190,7 +193,7 @@ function QuickAction({ href, title, description, icon, badge }: {
   href: string; title: string; description: string; icon: React.ReactNode; badge?: string;
 }) {
   return (
-    <Link href={href} className="group flex gap-4 rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-primary/20">
+    <Link href={href} className="group flex gap-4 rounded-xl border bg-card p-5 shadow-md card-hover hover:shadow-lg hover:border-primary/20">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
         {icon}
       </div>

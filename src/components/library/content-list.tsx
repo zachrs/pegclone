@@ -37,17 +37,24 @@ export function ContentList({ items, onSendSingle, emptyMessage }: ContentListPr
 
   if (items.length === 0) {
     return (
-      <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30">
-        <PackageOpen className="h-8 w-8 text-muted-foreground/50" />
-        <p className="text-sm text-muted-foreground">
-          {emptyMessage ?? "No content found"}
-        </p>
+      <div className="flex h-56 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-muted/20 animate-fade-in-up">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+          <PackageOpen className="h-7 w-7 text-muted-foreground/60" />
+        </div>
+        <div className="text-center">
+          <p className="font-medium text-muted-foreground">
+            {emptyMessage ?? "No content found"}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground/70">
+            Try adjusting your search or browse a different category
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+    <div className="overflow-hidden rounded-xl border bg-card shadow-md">
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -67,8 +74,8 @@ export function ContentList({ items, onSendSingle, emptyMessage }: ContentListPr
               <TableRow
                 key={item.id}
                 className={cn(
-                  "transition-colors",
-                  isSelected && "bg-primary/5"
+                  "transition-colors hover:bg-muted/40",
+                  isSelected && "bg-primary/5 hover:bg-primary/10"
                 )}
               >
                 <TableCell className="px-2">

@@ -160,7 +160,7 @@ export default function LibraryPage() {
           <FolderSidebar />
         </aside>
 
-        <div className="flex flex-1 flex-col gap-4 overflow-auto p-6">
+        <div className="flex flex-1 flex-col gap-4 overflow-auto p-6 animate-fade-in-up">
           <div className="flex items-center gap-4">
             <div className="flex-1"><ContentSearchBar /></div>
             <SendCartBar />
@@ -231,14 +231,21 @@ export default function LibraryPage() {
           )}
 
           {filteredOrgContent.length === 0 && filteredSystemContent.length === 0 && (
-            <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/50">
-                <path d="M20 17.58A5 5 0 0018 8h-1.26A8 8 0 104 16.25" />
-                <path d="M8 16h.01M8 12h.01M12 12h.01M12 16h.01M16 16h.01" />
-              </svg>
-              <p className="text-sm text-muted-foreground">
-                {searchQuery ? `No results for "${searchQuery}"` : "No content in this folder"}
-              </p>
+            <div className="flex h-56 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-muted/20 animate-fade-in-up">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/60">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="font-medium text-muted-foreground">
+                  {searchQuery ? `No results for "${searchQuery}"` : "No content yet"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground/70">
+                  {searchQuery ? "Try a different search term or browse all content" : "Upload your first content item or browse the PEG Library"}
+                </p>
+              </div>
             </div>
           )}
         </div>

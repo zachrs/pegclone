@@ -308,37 +308,49 @@ export function SendWizard() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-2xl animate-fade-in-up">
       {/* Stepper header */}
-      <div className="mb-8 flex items-center justify-between">
-        {STEP_LABELS.map((label, i) => {
-          const stepNum = (i + 1) as Step;
-          const isActive = step === stepNum;
-          const isComplete = step > stepNum;
-          return (
-            <div key={i} className="flex items-center gap-2">
-              {i > 0 && (
-                <div className={`hidden h-px w-8 sm:block ${isComplete ? "bg-primary" : "bg-border"}`} />
-              )}
-              <button
-                className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : isComplete
-                      ? "bg-primary/10 text-primary hover:bg-primary/15"
-                      : "bg-muted text-muted-foreground"
-                }`}
-                onClick={() => { if (isComplete) setStep(stepNum); }}
-                disabled={!isComplete && !isActive}
-              >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold">
-                  {isComplete ? <Check className="h-3 w-3" /> : stepNum}
-                </span>
-                <span className="hidden sm:inline">{label}</span>
-              </button>
-            </div>
-          );
-        })}
+      <div className="mb-8">
+        {/* Progress bar */}
+        <div className="relative mb-6">
+          <div className="absolute top-4 left-0 right-0 h-0.5 bg-border" />
+          <div
+            className="absolute top-4 left-0 h-0.5 bg-primary transition-all duration-500 ease-out"
+            style={{ width: `${((step - 1) / (STEP_LABELS.length - 1)) * 100}%` }}
+          />
+          <div className="relative flex justify-between">
+            {STEP_LABELS.map((label, i) => {
+              const stepNum = (i + 1) as Step;
+              const isActive = step === stepNum;
+              const isComplete = step > stepNum;
+              return (
+                <button
+                  key={i}
+                  className="flex flex-col items-center gap-2"
+                  onClick={() => { if (isComplete) setStep(stepNum); }}
+                  disabled={!isComplete && !isActive}
+                >
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-bold transition-all duration-300 ${
+                      isActive
+                        ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-110"
+                        : isComplete
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-muted-foreground/30 bg-background text-muted-foreground"
+                    }`}
+                  >
+                    {isComplete ? <Check className="h-3.5 w-3.5" /> : stepNum}
+                  </div>
+                  <span className={`hidden text-xs font-medium sm:block ${
+                    isActive ? "text-primary" : isComplete ? "text-primary/70" : "text-muted-foreground"
+                  }`}>
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* ── Step 1: Review Content ─────────────────────────────────── */}
