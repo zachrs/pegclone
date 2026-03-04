@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS users (
   mfa_enabled BOOLEAN NOT NULL DEFAULT false,
   invite_token_hash TEXT,
   invite_expires_at TIMESTAMPTZ,
+  reset_token_hash TEXT,
+  reset_expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
