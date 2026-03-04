@@ -10,6 +10,7 @@ import { SendCartBar } from "@/components/library/send-cart-bar";
 import { AddContentDialog } from "@/components/library/add-content-dialog";
 import { useLibraryStore } from "@/lib/hooks/use-library-store";
 import { getOrgContent, getSystemContent, getFolders, getFolderItems, getFavoriteIds, getFavoritedContent } from "@/lib/actions/library";
+import { getOrgInfo } from "@/lib/actions/auth";
 
 export default function LibraryPage() {
   const {
@@ -28,8 +29,16 @@ export default function LibraryPage() {
   const [favoritedContent, setFavoritedContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; algoliaObjectId: string | null; createdAt: Date }>>([]);
   const [folders, setFolders] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [folderItemIds, setFolderItemIds] = useState<Set<string>>(new Set());
+  const [orgName, setOrgName] = useState("Your Organization");
 
   const favoriteIds = favorites;
+
+  // Load org name on mount
+  useEffect(() => {
+    getOrgInfo()
+      .then((info) => setOrgName(info.name))
+      .catch(() => {});
+  }, []);
 
   // Load favorites from DB on mount
   useEffect(() => {
@@ -121,7 +130,7 @@ export default function LibraryPage() {
     const mapped = items.map((item) => ({
       id: item.id,
       title: item.title,
-      source: item.source === "org_upload" ? "Your Organization" : (item.source ?? "Organization"),
+      source: item.source === "org_upload" ? orgName : (item.source ?? orgName),
       type: item.type,
       url: item.url ?? undefined,
       isFavorite: favoriteIds.has(item.id),
@@ -175,7 +184,7 @@ export default function LibraryPage() {
     }
 
     return mapped;
-  }, [orgContent, activeFolder, searchQuery, folderItemIds, favoriteIds, favoritedContent]);
+  }, [orgContent, activeFolder, searchQuery, folderItemIds, favoriteIds, favoritedContent, orgName]);
 
   const filteredSystemContent = useMemo(() => {
     return systemContent.map((item) => ({
