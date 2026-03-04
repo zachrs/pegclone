@@ -109,9 +109,13 @@ export function FolderSidebar() {
   );
 }
 
+function isMyUploadsFolder(folder: LibraryFolder) {
+  return folder.id === "my-uploads" || folder.name.toLowerCase() === "my uploads";
+}
+
 function getIcon(folder: LibraryFolder) {
   if (folder.type === "favorites") return Heart;
-  if (folder.id === "my-uploads") return Upload;
+  if (isMyUploadsFolder(folder)) return Upload;
   if (folder.type === "team") return Users;
   return Folder;
 }
@@ -121,9 +125,9 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
 
-  const canEdit = folder.type === "personal" && folder.id !== "my-uploads";
+  const myUploads = isMyUploadsFolder(folder);
+  const canEdit = folder.type === "personal" && !myUploads;
   const canToggleType = folder.type === "personal" || folder.type === "team";
-  const isMyUploads = folder.id === "my-uploads";
 
   const handleRename = async () => {
     if (editName.trim() && editName !== folder.name) {
@@ -182,9 +186,9 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
         <Icon className="h-4 w-4 shrink-0" />
         <span className="truncate">{folder.name}</span>
       </button>
-      {(canEdit || (canToggleType && !isMyUploads)) && (
+      {(canEdit || (canToggleType && !myUploads)) && (
         <div className="absolute right-1 hidden gap-0.5 group-hover:flex">
-          {canToggleType && !isMyUploads && (
+          {canToggleType && !myUploads && (
             <button
               onClick={handleToggleType}
               className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"

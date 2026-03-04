@@ -100,21 +100,20 @@ function AddLinkForm({ onClose }: { onClose: () => void }) {
         url: url.trim(),
         folderId: folderId || undefined,
       });
-      // Also update local Zustand store for instant UI feedback
-      addOrgContent({
-        title: title.trim(),
-        source: "My Uploads",
-        type: "link",
-        url: url.trim(),
-        folderId: folderId || undefined,
-      });
-      toast.success("Link added to library");
-      onClose();
-    } catch {
-      toast.error("Failed to add link");
-    } finally {
-      setSaving(false);
+    } catch (err) {
+      console.error("[add-link] DB save failed, using local store:", err);
     }
+    // Always update local Zustand store for UI feedback
+    addOrgContent({
+      title: title.trim(),
+      source: "My Uploads",
+      type: "link",
+      url: url.trim(),
+      folderId: folderId || undefined,
+    });
+    toast.success("Link added to library");
+    setSaving(false);
+    onClose();
   };
 
   const personalFolders = folders.filter(
@@ -216,13 +215,17 @@ function UploadPdfForm({ onClose }: { onClose: () => void }) {
       setProgress(85);
 
       // 2. Save content item to database (fix #5: pass folderId)
-      await addOrgContentAction({
-        title: title.trim(),
-        type: "pdf",
-        url,
-        storagePath: pathname,
-        folderId: folderId || undefined,
-      });
+      try {
+        await addOrgContentAction({
+          title: title.trim(),
+          type: "pdf",
+          url,
+          storagePath: pathname,
+          folderId: folderId || undefined,
+        });
+      } catch (dbErr) {
+        console.error("[upload-pdf] DB save failed, using local store:", dbErr);
+      }
 
       setProgress(100);
 

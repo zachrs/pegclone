@@ -27,11 +27,10 @@ interface ContentListItem {
 
 interface ContentListProps {
   items: ContentListItem[];
-  onSendSingle?: (item: CartItem) => void;
   emptyMessage?: string;
 }
 
-export function ContentList({ items, onSendSingle, emptyMessage }: ContentListProps) {
+export function ContentList({ items, emptyMessage }: ContentListProps) {
   const { toggleItem, hasItem } = useSendCart();
   const { toggleFavorite } = useLibraryStore();
 

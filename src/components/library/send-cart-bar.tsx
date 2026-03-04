@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { useSendCart, type CartItem } from "@/lib/hooks/use-send-cart";
 import { sendMessage, bulkSend } from "@/lib/actions/send";
-import { searchRecipients } from "@/lib/actions/recipients";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import {
@@ -96,15 +95,7 @@ function SendDialog({
   // Step 1: Recipients
   const [mode, setMode] = useState<SendMode>("single");
   const [contact, setContact] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [personalNote, setPersonalNote] = useState("");
-  const [rosterQuery, setRosterQuery] = useState("");
-  const [rosterResults, setRosterResults] = useState<Array<{
-    id: string; firstName: string | null; lastName: string | null;
-    contact: string; contactType: string;
-  }>>([]);
-  const [rosterSearching, setRosterSearching] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkPreview, setBulkPreview] = useState<string[][]>([]);
   const [bulkName, setBulkName] = useState("");
@@ -128,8 +119,6 @@ function SendDialog({
       setStep(1);
       setSent(false);
       setContact("");
-      setFirstName("");
-      setLastName("");
       setPersonalNote("");
       setMode("single");
       setBulkFile(null);
@@ -142,22 +131,6 @@ function SendDialog({
       setQrViewerUrl(null);
     }
   }, [open]);
-
-  // Roster search
-  useEffect(() => {
-    if (!rosterQuery || rosterQuery.length < 2) {
-      setRosterResults([]);
-      return;
-    }
-    setRosterSearching(true);
-    const timer = setTimeout(() => {
-      searchRecipients(rosterQuery)
-        .then(setRosterResults)
-        .catch(() => {})
-        .finally(() => setRosterSearching(false));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [rosterQuery]);
 
   const isEmail = contact.includes("@");
   const isPhone = /^\+?\d[\d\s()-]{6,}$/.test(contact.trim());
@@ -409,17 +382,6 @@ function SendDialog({
 
             {mode === "single" && (
               <div className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label htmlFor="dlg-first-name" className="text-xs">First Name</Label>
-                    <Input id="dlg-first-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jane" className="mt-1" />
-                  </div>
-                  <div>
-                    <Label htmlFor="dlg-last-name" className="text-xs">Last Name</Label>
-                    <Input id="dlg-last-name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" className="mt-1" />
-                  </div>
-                </div>
-
                 <div>
                   <Label htmlFor="dlg-contact" className="text-xs">Email or Phone</Label>
                   <Input
@@ -434,46 +396,6 @@ function SendDialog({
                   )}
                   {contact.trim() && !isValidContact && (
                     <p className="mt-1 text-xs text-destructive">Enter a valid email address or phone number</p>
-                  )}
-                </div>
-
-                {/* Roster search */}
-                <div className="rounded-xl border bg-muted/30 p-3">
-                  <Label htmlFor="dlg-roster" className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Or search existing recipients</Label>
-                  <Input
-                    id="dlg-roster"
-                    placeholder="Search by name, email, or phone..."
-                    value={rosterQuery}
-                    onChange={(e) => setRosterQuery(e.target.value)}
-                    className="mt-1.5"
-                  />
-                  {rosterSearching && <p className="mt-1.5 text-xs text-muted-foreground">Searching...</p>}
-                  {rosterResults.length > 0 && (
-                    <div className="mt-1.5 max-h-32 space-y-0.5 overflow-auto">
-                      {rosterResults.map((r) => (
-                        <button
-                          key={r.id}
-                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-card"
-                          onClick={() => {
-                            setContact(r.contact);
-                            setFirstName(r.firstName ?? "");
-                            setLastName(r.lastName ?? "");
-                            setRosterQuery("");
-                            setRosterResults([]);
-                          }}
-                        >
-                          <span className="flex-1 font-medium text-xs">
-                            {r.firstName || r.lastName
-                              ? `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim()
-                              : "No name"}
-                          </span>
-                          <span className="font-mono text-[10px] text-muted-foreground">{r.contact}</span>
-                          <Badge variant="outline" className="text-[10px]">
-                            {r.contactType === "email" ? "Email" : "SMS"}
-                          </Badge>
-                        </button>
-                      ))}
-                    </div>
                   )}
                 </div>
 
