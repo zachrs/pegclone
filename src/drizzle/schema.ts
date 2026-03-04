@@ -138,6 +138,8 @@ export const users = pgTable(
     mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
     inviteTokenHash: text("invite_token_hash"),
     inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
+    resetTokenHash: text("reset_token_hash"),
+    resetExpiresAt: timestamp("reset_expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -389,6 +391,31 @@ export const folderItems = pgTable(
       table.contentItemId
     ),
     index("folder_items_tenant_id_idx").on(table.tenantId),
+  ]
+);
+
+// ── Audit Logs ─────────────────────────────────────────────────────────────
+
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id").references(() => organizations.id),
+    userId: uuid("user_id").references(() => users.id),
+    action: text("action").notNull(), // e.g., "user.invite", "message.send", "admin.branding.update"
+    resourceType: text("resource_type"), // e.g., "user", "message", "organization"
+    resourceId: text("resource_id"), // ID of the affected resource
+    details: jsonb("details").default({}),
+    ipAddress: text("ip_address"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("audit_logs_tenant_id_idx").on(table.tenantId),
+    index("audit_logs_user_id_idx").on(table.userId),
+    index("audit_logs_action_idx").on(table.action),
+    index("audit_logs_occurred_at_idx").on(table.occurredAt),
   ]
 );
 

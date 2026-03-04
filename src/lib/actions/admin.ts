@@ -10,6 +10,7 @@ import { sendEmail } from "@/lib/delivery/email";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import type { UserRole } from "@/lib/db/types";
+import { logAudit } from "@/lib/audit";
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -128,6 +129,14 @@ export async function inviteUser(params: {
     `,
   });
 
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "user.invite",
+    resourceType: "user",
+    details: { email: params.email, role: params.role, isAdmin: params.isAdmin },
+  });
+
   return { success: true };
 }
 
@@ -218,6 +227,14 @@ export async function resetUserPassword(userId: string, newPassword: string) {
     .update(users)
     .set({ passwordHash, updatedAt: new Date() })
     .where(and(eq(users.id, userId), tenant.eq(users.tenantId)));
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "user.password_reset",
+    resourceType: "user",
+    resourceId: userId,
+  });
 }
 
 export async function updateUser(
@@ -275,6 +292,14 @@ export async function deactivateUser(userId: string) {
     .update(users)
     .set({ isActive: false, deactivatedAt: new Date(), updatedAt: new Date() })
     .where(and(eq(users.id, userId), tenant.eq(users.tenantId)));
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "user.deactivate",
+    resourceType: "user",
+    resourceId: userId,
+  });
 }
 
 export async function reactivateUser(userId: string) {
@@ -303,6 +328,14 @@ export async function reactivateUser(userId: string) {
       updatedAt: new Date(),
     })
     .where(and(eq(users.id, userId), tenant.eq(users.tenantId)));
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "user.reactivate",
+    resourceType: "user",
+    resourceId: userId,
+  });
 }
 
 // ── Accept Invite ──────────────────────────────────────────────────────
@@ -450,6 +483,15 @@ export async function updateBranding(params: {
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, session.user.tenantId));
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "admin.branding.update",
+    resourceType: "organization",
+    resourceId: session.user.tenantId,
+    details: { name: params.name, logoUpdated: params.logoUrl !== undefined },
+  });
 }
 
 // ── Reminder Settings ───────────────────────────────────────────────────
@@ -503,6 +545,15 @@ export async function updateReminderSettings(params: {
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, session.user.tenantId));
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "admin.reminders.update",
+    resourceType: "organization",
+    resourceId: session.user.tenantId,
+    details: params,
+  });
 }
 
 // ── Message Templates ───────────────────────────────────────────────────
@@ -557,6 +608,14 @@ export async function updateMessageTemplates(params: {
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, session.user.tenantId));
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "admin.templates.update",
+    resourceType: "organization",
+    resourceId: session.user.tenantId,
+  });
 }
 
 // ── Delivery Settings ───────────────────────────────────────────────────
@@ -606,6 +665,15 @@ export async function updateDeliverySettings(params: {
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, session.user.tenantId));
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "admin.delivery.update",
+    resourceType: "organization",
+    resourceId: session.user.tenantId,
+    details: params,
+  });
 }
 
 // ── MFA / Security Settings ─────────────────────────────────────────────
@@ -649,6 +717,15 @@ export async function updateMfaSettings(params: { required: boolean }) {
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, session.user.tenantId));
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "admin.mfa.update",
+    resourceType: "organization",
+    resourceId: session.user.tenantId,
+    details: { required: params.required },
+  });
 }
 
 // ── Team Folders ────────────────────────────────────────────────────────

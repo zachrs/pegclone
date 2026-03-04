@@ -26,6 +26,24 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/library", nextUrl.origin));
   }
 
+  // Fix #9: Page-level permission enforcement for admin routes
+  const role = session.user?.role;
+  const isAdmin = session.user?.isAdmin;
+
+  // Super-admin routes: only super_admin role
+  if (nextUrl.pathname.startsWith("/super-admin")) {
+    if (role !== "super_admin") {
+      return NextResponse.redirect(new URL("/library", nextUrl.origin));
+    }
+  }
+
+  // Admin routes: super_admin or isAdmin users
+  if (nextUrl.pathname.startsWith("/admin")) {
+    if (role !== "super_admin" && !isAdmin) {
+      return NextResponse.redirect(new URL("/library", nextUrl.origin));
+    }
+  }
+
   return NextResponse.next();
 });
 

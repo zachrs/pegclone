@@ -86,11 +86,35 @@ export default function AnalyticsPage() {
     deliveryRate: stats.totalSent > 0 ? Math.round((stats.totalDelivered / stats.totalSent) * 100) : 0,
   };
 
+  // Fix #18: When a campaign is selected, only export that campaign's data
   const handleExportCSV = () => {
     const headers = ["Recipient", "Channel", "Status", "Sent At", "Opened At", "Sender"];
-    const rows = stats.recentMessages.map((msg) => [
+    // Use campaign-specific data when filtered, otherwise all recent messages
+    const exportMessages = selectedCampaign !== "all" ? [] : stats.recentMessages;
+    const rows = exportMessages.map((msg) => [
       msg.recipientContact, msg.deliveryChannel, msg.status, msg.sentAt, msg.openedAt ?? "", msg.senderName ?? "",
     ]);
+
+    if (rows.length === 0 && selectedCampaign !== "all") {
+      // For campaign-specific export, use the campaign stats (no recipient-level data available from analytics)
+      const campaignName = campaigns.find((c) => c.id === selectedCampaign)?.name ?? "campaign";
+      const summaryRows = [
+        ["Total Sent", String(campaignStats?.totalSent ?? 0), "", "", "", ""],
+        ["Delivered", String(campaignStats?.totalDelivered ?? 0), "", "", "", ""],
+        ["Opened", String(campaignStats?.totalOpened ?? 0), "", "", "", ""],
+        ["Failed", String(campaignStats?.totalFailed ?? 0), "", "", "", ""],
+      ];
+      const csv = [headers, ...summaryRows].map((row) => row.map((c) => `"${c}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `peg-campaign-${campaignName}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
     const csv = [headers, ...rows].map((row) => row.map((c) => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -201,7 +225,7 @@ export default function AnalyticsPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Awaiting open</dt>
-                <dd className="font-medium text-amber-600">{displayStats.totalDelivered - displayStats.totalOpened}</dd>
+                <dd className="font-medium text-amber-600">{Math.max(0, displayStats.totalDelivered - displayStats.totalOpened)}</dd>
               </div>
               <div className="flex justify-between border-t pt-3">
                 <dt className="text-muted-foreground">Open rate</dt>

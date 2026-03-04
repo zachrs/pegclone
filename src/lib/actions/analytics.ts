@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { messages } from "@/drizzle/schema";
-import { and, eq, gte, sql, desc } from "drizzle-orm";
+import { messages, messageEvents, contentItems } from "@/drizzle/schema";
+import { and, eq, gte, sql, desc, inArray } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
 
@@ -91,20 +91,68 @@ export async function getAnalytics(dateRange: "7d" | "30d" | "90d" | "all" = "al
     }
   }
 
-  // Resolve content titles (simplified — in production join with content_items)
-  const topContent = Array.from(contentCounts.entries())
+  // Fix #24: Resolve content titles from content_items table
+  const topEntries = Array.from(contentCounts.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([id, count]) => ({ title: id, count }));
+    .slice(0, 5);
 
-  // Item engagement rate: % of opened messages where at least 1 item was viewed
-  // For now, approximate from message_events if available, else use 0
-  const itemEngagementRate = opened > 0 ? Math.round(opened * 0.65) : 0; // stubbed until message_events is wired
-  const engagementPct = opened > 0 ? Math.round((itemEngagementRate / opened) * 100) : 0;
+  let topContent: Array<{ title: string; count: number }> = [];
+  if (topEntries.length > 0) {
+    const ids = topEntries.map(([id]) => id);
+    const titleRows = await db
+      .select({ id: contentItems.id, title: contentItems.title })
+      .from(contentItems)
+      .where(inArray(contentItems.id, ids));
 
-  // Reminder effectiveness (stubbed — real data needs message_events)
-  const totalRemindersSent = Math.round(delivered * 0.3); // stub
-  const openedAfterReminder = Math.round(totalRemindersSent * 0.4); // stub
+    const titleMap = new Map(titleRows.map((r) => [r.id, r.title]));
+    topContent = topEntries.map(([id, count]) => ({
+      title: titleMap.get(id) ?? id,
+      count,
+    }));
+  }
+
+  // Fix #10: Real item engagement from message_events
+  // Count messages that have at least one item_viewed event
+  const [engagementResult] = await db
+    .select({
+      messagesWithViews: sql<number>`count(distinct ${messageEvents.messageId})::int`,
+    })
+    .from(messageEvents)
+    .where(
+      and(
+        eq(messageEvents.tenantId, session.user.tenantId),
+        eq(messageEvents.eventType, "item_viewed")
+      )
+    );
+  const itemEngagementRate = opened > 0
+    ? Math.round(((engagementResult?.messagesWithViews ?? 0) / opened) * 100)
+    : 0;
+
+  // Fix #10: Real reminder effectiveness from message_events
+  const [reminderResult] = await db
+    .select({
+      totalRemindersSent: sql<number>`count(*)::int`,
+    })
+    .from(messageEvents)
+    .where(
+      and(
+        eq(messageEvents.tenantId, session.user.tenantId),
+        eq(messageEvents.eventType, "reminder_sent")
+      )
+    );
+  const totalRemindersSent = reminderResult?.totalRemindersSent ?? 0;
+
+  // Count messages that were opened after having a reminder sent
+  const [openedAfterReminderResult] = await db.execute(sql`
+    select count(distinct me.message_id)::int as count
+    from message_events me
+    join messages m on me.message_id = m.id
+    where me.tenant_id = ${session.user.tenantId}
+      and me.event_type = 'reminder_sent'
+      and m.opened_at is not null
+      and m.opened_at > me.occurred_at
+  `);
+  const openedAfterReminder = (openedAfterReminderResult as unknown as { count: number })?.count ?? 0;
   const reminderEffectiveness = totalRemindersSent > 0 ? Math.round((openedAfterReminder / totalRemindersSent) * 100) : 0;
 
   // Sender breakdown
@@ -142,7 +190,7 @@ export async function getAnalytics(dateRange: "7d" | "30d" | "90d" | "all" = "al
     totalOpened: opened,
     totalFailed: stats?.totalFailed ?? 0,
     openRate,
-    itemEngagementRate: engagementPct,
+    itemEngagementRate,
     reminderEffectiveness,
     totalRemindersSent,
     openedAfterReminder,

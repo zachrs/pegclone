@@ -57,44 +57,46 @@ export async function getCampaigns(): Promise<CampaignSummary[]> {
   const session = await requireSession();
   const tenant = withTenant(session.user.tenantId);
 
-  const campaigns = await db
-    .select()
-    .from(bulkSends)
-    .where(tenant.eq(bulkSends.tenantId))
-    .orderBy(desc(bulkSends.createdAt));
+  // Fix #11: Single query with subquery instead of N+1
+  const rows = await db.execute(sql`
+    select
+      bs.id, bs.name, bs.delivery_channel, bs.total_recipients,
+      bs.status, bs.sent_at, bs.created_at,
+      coalesce(s.delivered, 0)::int as delivered,
+      coalesce(s.failed, 0)::int as failed,
+      coalesce(s.opened, 0)::int as opened
+    from bulk_sends bs
+    left join lateral (
+      select
+        count(*) filter (where m.status = 'delivered') as delivered,
+        count(*) filter (where m.status = 'failed') as failed,
+        count(*) filter (where m.opened_at is not null) as opened
+      from messages m
+      where m.bulk_send_id = bs.id and m.tenant_id = ${session.user.tenantId}
+    ) s on true
+    where bs.tenant_id = ${session.user.tenantId}
+    order by bs.created_at desc
+  `);
 
-  const result: CampaignSummary[] = [];
-
-  for (const c of campaigns) {
-    const [stats] = await db
-      .select({
-        delivered: sql<number>`count(*) filter (where ${messages.status} = 'delivered')::int`,
-        failed: sql<number>`count(*) filter (where ${messages.status} = 'failed')::int`,
-        opened: sql<number>`count(*) filter (where ${messages.openedAt} is not null)::int`,
-      })
-      .from(messages)
-      .where(and(tenant.eq(messages.tenantId), eq(messages.bulkSendId, c.id)));
-
-    const delivered = stats?.delivered ?? 0;
-    const opened = stats?.opened ?? 0;
-
-    result.push({
-      id: c.id,
-      name: c.name,
-      deliveryChannel: c.deliveryChannel,
-      totalRecipients: c.totalRecipients,
-      status: c.status,
-      sentAt: c.sentAt?.toISOString() ?? null,
-      createdAt: c.createdAt.toISOString(),
+  return (rows as unknown as Array<Record<string, unknown>>).map((r) => {
+    const delivered = Number(r.delivered);
+    const opened = Number(r.opened);
+    const totalRecipients = Number(r.total_recipients);
+    return {
+      id: String(r.id),
+      name: String(r.name),
+      deliveryChannel: String(r.delivery_channel),
+      totalRecipients,
+      status: String(r.status),
+      sentAt: r.sent_at ? new Date(r.sent_at as string).toISOString() : null,
+      createdAt: new Date(r.created_at as string).toISOString(),
       delivered,
-      failed: stats?.failed ?? 0,
+      failed: Number(r.failed),
       opened,
-      deliveryRate: c.totalRecipients > 0 ? Math.round((delivered / c.totalRecipients) * 100) : 0,
+      deliveryRate: totalRecipients > 0 ? Math.round((delivered / totalRecipients) * 100) : 0,
       openRate: delivered > 0 ? Math.round((opened / delivered) * 100) : 0,
-    });
-  }
-
-  return result;
+    };
+  });
 }
 
 /**

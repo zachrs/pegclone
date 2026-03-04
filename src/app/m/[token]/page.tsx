@@ -1,5 +1,12 @@
-import { lookupMessage } from "@/lib/viewer/mock-data";
+import { db } from "@/lib/db";
+import { messages, messageEvents, organizations, users, contentItems } from "@/drizzle/schema";
+import { eq, inArray } from "drizzle-orm";
+import crypto from "crypto";
 import { ViewerContent } from "./viewer-content";
+
+function hashToken(token: string) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 export default async function PatientViewerPage({
   params,
@@ -7,9 +14,23 @@ export default async function PatientViewerPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const message = lookupMessage(token);
+  const tokenHash = hashToken(token);
 
-  if (!message) {
+  // Look up message by access token hash
+  const [msg] = await db
+    .select({
+      id: messages.id,
+      tenantId: messages.tenantId,
+      senderId: messages.senderId,
+      contentBlocks: messages.contentBlocks,
+      accessTokenExpiresAt: messages.accessTokenExpiresAt,
+      openedAt: messages.openedAt,
+    })
+    .from(messages)
+    .where(eq(messages.accessTokenHash, tokenHash))
+    .limit(1);
+
+  if (!msg) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="max-w-sm text-center">
@@ -25,20 +46,40 @@ export default async function PatientViewerPage({
     );
   }
 
-  if (message.expired) {
+  // Get org info
+  const [org] = await db
+    .select({
+      name: organizations.name,
+      slug: organizations.slug,
+      logoUrl: organizations.logoUrl,
+      primaryColor: organizations.primaryColor,
+      secondaryColor: organizations.secondaryColor,
+      settings: organizations.settings,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, msg.tenantId))
+    .limit(1);
+
+  const orgPhone = (org?.settings as Record<string, Record<string, string>> | null)?.contact?.phone ?? null;
+  const orgWebsite = (org?.settings as Record<string, Record<string, string>> | null)?.contact?.website ?? null;
+
+  // Check expiration (message expiration per spec)
+  const isExpired = msg.accessTokenExpiresAt && msg.accessTokenExpiresAt < new Date();
+
+  if (isExpired) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="max-w-sm text-center">
           <div
             className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full"
-            style={{ backgroundColor: message.org.primaryColor + "20" }}
+            style={{ backgroundColor: (org?.primaryColor ?? "#2563EB") + "20" }}
           >
             <svg
               width="28"
               height="28"
               viewBox="0 0 24 24"
               fill="none"
-              stroke={message.org.primaryColor}
+              stroke={org?.primaryColor ?? "#2563EB"}
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -54,15 +95,15 @@ export default async function PatientViewerPage({
             This link is no longer active. Please contact your provider for a
             new link.
           </p>
-          {message.org.phone && (
+          {orgPhone && (
             <p className="mt-4 text-sm text-gray-600">
-              Contact {message.org.name}:{" "}
+              Contact {org?.name ?? "your provider"}:{" "}
               <a
-                href={`tel:${message.org.phone}`}
+                href={`tel:${orgPhone}`}
                 className="font-medium underline"
-                style={{ color: message.org.primaryColor }}
+                style={{ color: org?.primaryColor ?? "#2563EB" }}
               >
-                {message.org.phone}
+                {orgPhone}
               </a>
             </p>
           )}
@@ -71,5 +112,98 @@ export default async function PatientViewerPage({
     );
   }
 
-  return <ViewerContent message={message} />;
+  // Get sender (provider) info
+  const [sender] = await db
+    .select({
+      fullName: users.fullName,
+      title: users.title,
+      photoUrl: users.photoUrl,
+    })
+    .from(users)
+    .where(eq(users.id, msg.senderId))
+    .limit(1);
+
+  // Resolve content items from contentBlocks JSONB
+  const blocks = (msg.contentBlocks ?? []) as Array<{
+    type: string;
+    content_item_id: string;
+    order: number;
+  }>;
+  const contentItemIds = blocks.map((b) => b.content_item_id);
+
+  let resolvedItems: Array<{
+    id: string;
+    title: string;
+    type: "pdf" | "link";
+    url: string;
+  }> = [];
+
+  if (contentItemIds.length > 0) {
+    const items = await db
+      .select({
+        id: contentItems.id,
+        title: contentItems.title,
+        type: contentItems.type,
+        url: contentItems.url,
+      })
+      .from(contentItems)
+      .where(inArray(contentItems.id, contentItemIds));
+
+    // Preserve order from contentBlocks
+    const itemMap = new Map(items.map((i) => [i.id, i]));
+    resolvedItems = blocks
+      .sort((a, b) => a.order - b.order)
+      .map((b) => itemMap.get(b.content_item_id))
+      .filter((i): i is NonNullable<typeof i> => i != null)
+      .map((i) => ({
+        id: i.id,
+        title: i.title,
+        type: i.type,
+        url: i.url ?? "",
+      }));
+  }
+
+  // Update lastAccessedAt and mark as opened (fixes #19)
+  const now = new Date();
+  await db
+    .update(messages)
+    .set({
+      lastAccessedAt: now,
+      ...(msg.openedAt ? {} : { openedAt: now }),
+      updatedAt: now,
+    })
+    .where(eq(messages.id, msg.id));
+
+  // Log "opened" event for audit trail (only on first open)
+  if (!msg.openedAt) {
+    await db.insert(messageEvents).values({
+      tenantId: msg.tenantId,
+      messageId: msg.id,
+      eventType: "opened",
+      payload: { source: "viewer" },
+      occurredAt: now,
+    });
+  }
+
+  const viewerMessage = {
+    id: msg.id,
+    accessToken: token,
+    expired: false,
+    org: {
+      name: org?.name ?? "Healthcare Provider",
+      logoUrl: org?.logoUrl ?? null,
+      primaryColor: org?.primaryColor ?? "#2563EB",
+      secondaryColor: org?.secondaryColor ?? null,
+      phone: orgPhone,
+      website: orgWebsite,
+    },
+    provider: {
+      name: sender?.fullName ?? "Your Provider",
+      title: sender?.title ?? null,
+      photoUrl: sender?.photoUrl ?? null,
+    },
+    contentItems: resolvedItems,
+  };
+
+  return <ViewerContent message={viewerMessage} messageId={msg.id} tenantId={msg.tenantId} />;
 }
