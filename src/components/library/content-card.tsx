@@ -41,7 +41,7 @@ export function ContentCard({
   return (
     <div
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:shadow-md",
+        "group relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-md card-hover hover:shadow-lg hover:border-primary/20",
         isSelected && "ring-2 ring-primary ring-offset-1"
       )}
     >
