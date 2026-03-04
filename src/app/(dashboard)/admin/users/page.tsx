@@ -30,14 +30,25 @@ import {
 } from "@/components/ui/table";
 import {
   getOrgUsers,
-  createUser,
+  inviteUser,
   updateUser as updateUserAction,
   deactivateUser as deactivateUserAction,
   reactivateUser as reactivateUserAction,
   resetUserPassword as resetUserPasswordAction,
+  resendInvite as resendInviteAction,
 } from "@/lib/actions/admin";
 import type { UserRole } from "@/lib/db/types";
 import { toast } from "sonner";
+import {
+  UserPlus,
+  Search,
+  Download,
+  Send,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  MailPlus,
+} from "lucide-react";
 
 interface OrgUser {
   id: string;
@@ -49,6 +60,8 @@ interface OrgUser {
   title: string | null;
   activatedAt: Date | string | null;
   deactivatedAt: Date | string | null;
+  inviteTokenHash: string | null;
+  inviteExpiresAt: Date | string | null;
 }
 
 export default function AdminUsersPage() {
@@ -74,7 +87,7 @@ export default function AdminUsersPage() {
 
   const activeCount = users.filter((u) => u.isActive).length;
   const adminCount = users.filter((u) => u.isAdmin && u.isActive).length;
-  const providerCount = users.filter((u) => u.role === "provider" && u.isActive).length;
+  const pendingCount = users.filter((u) => !u.isActive && u.inviteTokenHash).length;
 
   const handleExportCSV = () => {
     const rows = [
@@ -84,7 +97,7 @@ export default function AdminUsersPage() {
         u.email,
         u.role,
         u.isAdmin ? "Yes" : "No",
-        u.isActive ? "Active" : "Deactivated",
+        getUserStatus(u),
         u.activatedAt ? new Date(u.activatedAt).toLocaleDateString() : "",
         u.deactivatedAt ? new Date(u.deactivatedAt).toLocaleDateString() : "",
       ]),
@@ -100,15 +113,37 @@ export default function AdminUsersPage() {
   };
 
   const handleDeactivate = async (u: OrgUser) => {
-    await deactivateUserAction(u.id);
-    toast.success(`${u.fullName} deactivated`);
-    loadUsers();
+    try {
+      await deactivateUserAction(u.id);
+      toast.success(`${u.fullName} deactivated`);
+      loadUsers();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to deactivate user");
+    }
   };
 
   const handleReactivate = async (u: OrgUser) => {
-    await reactivateUserAction(u.id);
-    toast.success(`${u.fullName} reactivated`);
-    loadUsers();
+    try {
+      await reactivateUserAction(u.id);
+      toast.success(`${u.fullName} reactivated`);
+      loadUsers();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to reactivate user");
+    }
+  };
+
+  const handleResendInvite = async (u: OrgUser) => {
+    try {
+      const result = await resendInviteAction(u.id);
+      if (result.success) {
+        toast.success(`Invitation resent to ${u.email}`);
+        loadUsers();
+      } else {
+        toast.error(result.error ?? "Failed to resend invite");
+      }
+    } catch {
+      toast.error("Failed to resend invite");
+    }
   };
 
   return (
@@ -117,46 +152,82 @@ export default function AdminUsersPage() {
       <main className="flex-1 overflow-auto p-6">
         {/* Stats */}
         <div className="mb-6 grid grid-cols-3 gap-4">
-          <div className="rounded-lg border bg-white p-4">
-            <p className="text-2xl font-bold">{activeCount}</p>
-            <p className="text-xs text-muted-foreground">Active Users</p>
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-50">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{activeCount}</p>
+                <p className="text-xs text-muted-foreground">Active Users</p>
+              </div>
+            </div>
           </div>
-          <div className="rounded-lg border bg-white p-4">
-            <p className="text-2xl font-bold text-teal-700">{providerCount}</p>
-            <p className="text-xs text-muted-foreground">Providers</p>
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <UserPlus className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-primary">{adminCount}</p>
+                <p className="text-xs text-muted-foreground">Admins</p>
+              </div>
+            </div>
           </div>
-          <div className="rounded-lg border bg-white p-4">
-            <p className="text-2xl font-bold text-blue-600">{adminCount}</p>
-            <p className="text-xs text-muted-foreground">Admins</p>
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
+                <Clock className="h-4 w-4 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-amber-600">{pendingCount}</p>
+                <p className="text-xs text-muted-foreground">Pending Invites</p>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Toolbar */}
         <div className="mb-4 flex items-center justify-between gap-4">
-          <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search users" className="max-w-xs" />
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search users..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search users"
+              className="max-w-xs pl-8"
+            />
+          </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportCSV}>Export CSV</Button>
-            <Button size="sm" onClick={() => setShowCreate(true)}>Create User</Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportCSV}>
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
+            </Button>
+            <Button size="sm" className="gap-1.5" onClick={() => setShowCreate(true)}>
+              <Send className="h-3.5 w-3.5" />
+              Invite User
+            </Button>
           </div>
         </div>
 
         {/* Table */}
-        <div className="rounded-lg border bg-white">
+        <div className="rounded-xl border bg-card shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-transparent">
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Admin</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Since</TableHead>
+                <TableHead className="w-24">Role</TableHead>
+                <TableHead className="w-20">Admin</TableHead>
+                <TableHead className="w-28">Status</TableHead>
+                <TableHead className="w-28">Since</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((u) => (
-                <TableRow key={u.id} className={!u.isActive ? "opacity-50" : ""}>
+                <TableRow key={u.id} className={!u.isActive && !u.inviteTokenHash ? "opacity-50" : ""}>
                   <TableCell className="font-medium">
                     <div>
                       {u.fullName}
@@ -169,27 +240,32 @@ export default function AdminUsersPage() {
                     {u.isAdmin && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Admin</Badge>}
                   </TableCell>
                   <TableCell>
-                    {u.isActive ? (
-                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Active</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-red-600">Deactivated</Badge>
-                    )}
+                    <UserStatusBadge user={u} />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {u.activatedAt ? new Date(u.activatedAt).toLocaleDateString() : "\u2014"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => setEditUser(u)}>Edit</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setResetUser(u)}>Reset Password</Button>
-                      {u.isActive ? (
-                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeactivate(u)}>
-                          Deactivate
+                      {u.inviteTokenHash && !u.isActive ? (
+                        <Button variant="ghost" size="sm" className="gap-1 text-primary" onClick={() => handleResendInvite(u)}>
+                          <MailPlus className="h-3.5 w-3.5" />
+                          Resend
                         </Button>
                       ) : (
-                        <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700" onClick={() => handleReactivate(u)}>
-                          Reactivate
-                        </Button>
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => setEditUser(u)}>Edit</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setResetUser(u)}>Reset PW</Button>
+                          {u.isActive ? (
+                            <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeactivate(u)}>
+                              Deactivate
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700" onClick={() => handleReactivate(u)}>
+                              Reactivate
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </TableCell>
@@ -205,13 +281,17 @@ export default function AdminUsersPage() {
         </div>
       </main>
 
-      <CreateUserDialog
+      <InviteUserDialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreate={async (params) => {
-          await createUser(params);
-          toast.success(`User ${params.fullName} created`);
-          loadUsers();
+        onInvite={async (params) => {
+          const result = await inviteUser(params);
+          if (result.success) {
+            toast.success(`Invitation sent to ${params.email}`);
+            loadUsers();
+          } else {
+            toast.error(result.error ?? "Failed to invite user");
+          }
         }}
       />
 
@@ -220,10 +300,14 @@ export default function AdminUsersPage() {
           user={editUser}
           onClose={() => setEditUser(null)}
           onSave={async (updates) => {
-            await updateUserAction(editUser.id, updates);
-            setEditUser(null);
-            toast.success(`User ${editUser.fullName} updated`);
-            loadUsers();
+            try {
+              await updateUserAction(editUser.id, updates);
+              setEditUser(null);
+              toast.success(`User ${editUser.fullName} updated`);
+              loadUsers();
+            } catch (err: unknown) {
+              toast.error(err instanceof Error ? err.message : "Failed to update user");
+            }
           }}
         />
       )}
@@ -233,13 +317,57 @@ export default function AdminUsersPage() {
           user={resetUser}
           onClose={() => setResetUser(null)}
           onReset={async (newPassword) => {
-            await resetUserPasswordAction(resetUser.id, newPassword);
-            setResetUser(null);
-            toast.success(`Password reset for ${resetUser.fullName}`);
+            try {
+              await resetUserPasswordAction(resetUser.id, newPassword);
+              setResetUser(null);
+              toast.success(`Password reset for ${resetUser.fullName}`);
+            } catch (err: unknown) {
+              toast.error(err instanceof Error ? err.message : "Failed to reset password");
+            }
           }}
         />
       )}
     </>
+  );
+}
+
+function getUserStatus(u: OrgUser): string {
+  if (u.inviteTokenHash && !u.isActive) return "Invited";
+  if (u.isActive) return "Active";
+  return "Deactivated";
+}
+
+function UserStatusBadge({ user }: { user: OrgUser }) {
+  if (user.inviteTokenHash && !user.isActive) {
+    const expired = user.inviteExpiresAt && new Date(user.inviteExpiresAt) < new Date();
+    if (expired) {
+      return (
+        <Badge variant="outline" className="gap-1 border-red-200 bg-red-50 text-red-700">
+          <XCircle className="h-3 w-3" />
+          Expired
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-amber-700">
+        <Clock className="h-3 w-3" />
+        Invited
+      </Badge>
+    );
+  }
+  if (user.isActive) {
+    return (
+      <Badge className="gap-1 bg-green-100 text-green-700 hover:bg-green-100">
+        <CheckCircle2 className="h-3 w-3" />
+        Active
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="gap-1 text-red-600">
+      <XCircle className="h-3 w-3" />
+      Deactivated
+    </Badge>
   );
 }
 
@@ -254,38 +382,57 @@ function RoleBadge({ role }: { role: UserRole }) {
   return <Badge className={`${styles[role] ?? "bg-gray-100 text-gray-700"} hover:${styles[role]}`}>{labels[role] ?? role}</Badge>;
 }
 
-function CreateUserDialog({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (p: { fullName: string; email: string; password: string; role: UserRole; isAdmin: boolean; title?: string }) => Promise<void> }) {
+function InviteUserDialog({ open, onClose, onInvite }: {
+  open: boolean;
+  onClose: () => void;
+  onInvite: (p: { fullName: string; email: string; role: UserRole; isAdmin: boolean; title?: string }) => Promise<void>;
+}) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("org_user");
   const [isAdmin, setIsAdmin] = useState(false);
   const [title, setTitle] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!fullName.trim() || !email.trim() || password.length < 8) return;
-    await onCreate({ fullName: fullName.trim(), email: email.trim(), password, role, isAdmin, title: title.trim() || undefined });
-    setFullName(""); setEmail(""); setPassword(""); setRole("org_user"); setIsAdmin(false); setTitle("");
-    onClose();
+    if (!fullName.trim() || !email.trim()) return;
+    setSubmitting(true);
+    try {
+      await onInvite({ fullName: fullName.trim(), email: email.trim(), role, isAdmin, title: title.trim() || undefined });
+      setFullName(""); setEmail(""); setRole("org_user"); setIsAdmin(false); setTitle("");
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Create User</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Send className="h-4 w-4 text-primary" />
+            Invite User
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          An email invitation will be sent with a link to set their password.
+        </p>
         <div className="space-y-4 py-2">
-          <div><Label htmlFor="create-fullname">Full Name</Label><Input id="create-fullname" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Jane Smith" /></div>
-          <div><Label htmlFor="create-email">Email</Label><Input id="create-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane.smith@org.com" /></div>
           <div>
-            <Label htmlFor="create-password">Password</Label>
-            <Input id="create-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimum 8 characters" autoComplete="new-password" />
-            {password.length > 0 && password.length < 8 && (
-              <p className="mt-1 text-xs text-red-500">Password must be at least 8 characters</p>
-            )}
+            <Label htmlFor="invite-fullname">Full Name</Label>
+            <Input id="invite-fullname" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Jane Smith" />
           </div>
-          <div><Label htmlFor="create-title">Title (optional)</Label><Input id="create-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="OB/GYN, MD" /></div>
           <div>
-            <Label htmlFor="create-role">Role</Label>
+            <Label htmlFor="invite-email">Email</Label>
+            <Input id="invite-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane.smith@org.com" />
+          </div>
+          <div>
+            <Label htmlFor="invite-title">Title (optional)</Label>
+            <Input id="invite-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="OB/GYN, MD" />
+          </div>
+          <div>
+            <Label htmlFor="invite-role">Role</Label>
             <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -296,13 +443,16 @@ function CreateUserDialog({ open, onClose, onCreate }: { open: boolean; onClose:
             </Select>
           </div>
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="create-admin" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
-            <Label htmlFor="create-admin" className="text-sm">Grant admin privileges</Label>
+            <input type="checkbox" id="invite-admin" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+            <Label htmlFor="invite-admin" className="text-sm">Grant admin privileges</Label>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!fullName.trim() || !email.trim() || password.length < 8}>Create</Button>
+          <Button onClick={handleSubmit} disabled={!fullName.trim() || !email.trim() || submitting} className="gap-1.5">
+            <Send className="h-3.5 w-3.5" />
+            {submitting ? "Sending..." : "Send Invite"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
