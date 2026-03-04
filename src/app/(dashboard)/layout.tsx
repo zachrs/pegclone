@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { OrgContextBanner } from "@/components/layout/org-context-banner";
 
 export default function DashboardLayout({
   children,
@@ -15,7 +16,10 @@ export default function DashboardLayout({
         Skip to main content
       </a>
       <AppSidebar />
-      <SidebarInset id="main-content">{children}</SidebarInset>
+      <SidebarInset id="main-content">
+        <OrgContextBanner />
+        {children}
+      </SidebarInset>
     </SidebarProvider>
   );
 }
