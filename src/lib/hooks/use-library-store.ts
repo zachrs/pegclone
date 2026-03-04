@@ -33,6 +33,7 @@ interface LibraryState {
   searchQuery: string;
   activeTab: "all" | "system" | "org";
   viewMode: ViewMode;
+  contentVersion: number;
 
   setActiveFolder: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
@@ -44,6 +45,7 @@ interface LibraryState {
   deleteFolder: (id: string) => void;
   addOrgContent: (item: Omit<OrgContentItem, "id" | "createdAt" | "isFavorite">) => void;
   deleteOrgContent: (id: string) => void;
+  bumpContentVersion: () => void;
   toggleFolderType: (id: string, newType: "personal" | "team") => void;
 }
 
@@ -129,6 +131,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   activeFolder: null,
   searchQuery: "",
   activeTab: "all",
+  contentVersion: 0,
   viewMode: (typeof window !== "undefined"
     ? (localStorage.getItem("peg-view-mode") as ViewMode) ?? "grid"
     : "grid") as ViewMode,
@@ -200,6 +203,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   addOrgContent: (item) =>
     set((state) => ({
+      contentVersion: state.contentVersion + 1,
       orgContent: [
         ...state.orgContent,
         {
@@ -210,6 +214,9 @@ export const useLibraryStore = create<LibraryState>((set) => ({
         },
       ],
     })),
+
+  bumpContentVersion: () =>
+    set((state) => ({ contentVersion: state.contentVersion + 1 })),
 
   deleteOrgContent: (id) =>
     set((state) => ({

@@ -20,6 +20,7 @@ export default function LibraryPage() {
     viewMode,
     setViewMode,
     favorites,
+    contentVersion,
   } = useLibraryStore();
 
   // DB-backed state (fix #23: include createdAt)
@@ -40,12 +41,12 @@ export default function LibraryPage() {
       .catch(() => {});
   }, []);
 
-  // Load org content
+  // Load org content (refetch when contentVersion changes, e.g. after adding content)
   useEffect(() => {
     getOrgContent()
       .then((data) => setOrgContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>))
       .catch(() => {});
-  }, []);
+  }, [contentVersion]);
 
   // Load folders
   useEffect(() => {
