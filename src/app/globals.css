@@ -179,3 +179,19 @@
 .card-hover:hover {
   transform: translateY(-2px);
 }
+
+/* Animated bar fill for analytics */
+@keyframes bar-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--bar-width);
+  }
+}
+
+.animate-bar-fill {
+  animation: bar-fill 0.8s ease-out both;
+  animation-delay: 0.2s;
+  width: var(--bar-width);
+}

@@ -69,7 +69,7 @@ export default function RecipientsPage() {
       <Header title="Recipients" />
       <main className="flex flex-1 overflow-hidden">
         {/* Recipient list */}
-        <div className="flex flex-1 flex-col gap-4 overflow-auto p-6">
+        <div className="flex flex-1 flex-col gap-4 overflow-auto p-6 animate-fade-in-up">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -96,7 +96,7 @@ export default function RecipientsPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <div className="overflow-hidden rounded-xl border bg-card shadow-md">
               {/* Pagination info */}
               {total > pageSize && (
                 <div className="flex items-center justify-between border-b px-4 py-2 text-xs text-muted-foreground">

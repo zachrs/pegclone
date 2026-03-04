@@ -128,7 +128,7 @@ export default function AnalyticsPage() {
   return (
     <>
       <Header title="Analytics" />
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-auto p-6 animate-fade-in-up">
         {/* Controls bar */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -198,7 +198,7 @@ export default function AnalyticsPage() {
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* Channel breakdown */}
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
+          <div className="rounded-xl border bg-card p-5 shadow-md">
             <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">By Channel</h2>
             <div className="space-y-3">
               <ChannelBar label="Email" count={displayStats.emailCount} total={displayStats.totalSent} color="bg-violet-500" />
@@ -208,7 +208,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Summary stats */}
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
+          <div className="rounded-xl border bg-card p-5 shadow-md">
             <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Summary</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
@@ -240,7 +240,7 @@ export default function AnalyticsPage() {
 
           {/* Reminder effectiveness (org-level only) */}
           {!campaignStats && (
-            <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <div className="rounded-xl border bg-card p-5 shadow-md">
               <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reminder Effectiveness</h2>
               <dl className="space-y-3 text-sm">
                 <div className="flex justify-between">
@@ -262,7 +262,7 @@ export default function AnalyticsPage() {
 
           {/* User activity (provider view) */}
           {viewLevel === "provider" && !campaignStats && (
-            <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <div className="rounded-xl border bg-card p-5 shadow-md">
               <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">User Activity</h2>
               {stats.senderBreakdown.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No send activity yet.</p>
@@ -282,7 +282,7 @@ export default function AnalyticsPage() {
 
           {/* Campaigns quick list */}
           {!campaignStats && campaigns.length > 0 && (
-            <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <div className="rounded-xl border bg-card p-5 shadow-md">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent Campaigns</h2>
                 <Link href="/campaigns" className="text-xs font-medium text-primary hover:underline">View all</Link>
@@ -307,12 +307,17 @@ export default function AnalyticsPage() {
 
           {/* Top content */}
           {!campaignStats && (
-            <div className="rounded-xl border bg-card p-5 shadow-sm md:col-span-2">
+            <div className="rounded-xl border bg-card p-5 shadow-md md:col-span-2">
               <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Most Frequently Sent Content</h2>
               {stats.topContent.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-6 text-center">
-                  <BarChart3 className="h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">{data === null ? "Loading..." : "No messages sent yet."}</p>
+                <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <BarChart3 className="h-5 w-5 text-muted-foreground/50" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-muted-foreground">{data === null ? "Loading..." : "No messages sent yet"}</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground/70">Content popularity will appear here after you start sending</p>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -330,12 +335,17 @@ export default function AnalyticsPage() {
 
           {/* Recent activity */}
           {!campaignStats && (
-            <div className="rounded-xl border bg-card p-5 shadow-sm md:col-span-2">
+            <div className="rounded-xl border bg-card p-5 shadow-md md:col-span-2">
               <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent Activity</h2>
               {stats.recentMessages.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-6 text-center">
-                  <Send className="h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No messages sent yet.</p>
+                <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <Send className="h-5 w-5 text-muted-foreground/50" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-muted-foreground">No messages sent yet</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground/70">Recent activity will show up here once you start sending</p>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -373,7 +383,7 @@ function MetricCard({ label, value, icon, color, loading }: {
   const iconColor = color === "green" ? "text-green-500 bg-green-50" : color === "teal" ? "text-primary bg-primary/10" : color === "blue" ? "text-blue-500 bg-blue-50" : color === "purple" ? "text-violet-500 bg-violet-50" : color === "amber" ? "text-amber-500 bg-amber-50" : "text-muted-foreground bg-muted";
 
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
+    <div className="rounded-xl border bg-card p-4 shadow-md card-hover hover:shadow-lg hover:border-primary/20">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
         <div className={`flex h-6 w-6 items-center justify-center rounded-lg ${iconColor}`}>{icon}</div>
@@ -391,12 +401,12 @@ function ChannelBar({ label, count, total, color }: { label: string; count: numb
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-sm">
+      <div className="mb-1.5 flex items-center justify-between text-sm">
         <span className="font-medium">{label}</span>
         <span className="text-muted-foreground">{count} ({pct}%)</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+        <div className={`h-full rounded-full ${color} animate-bar-fill`} style={{ "--bar-width": `${pct}%` } as React.CSSProperties} />
       </div>
     </div>
   );

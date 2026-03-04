@@ -41,7 +41,7 @@ export default function CampaignsPage() {
     <>
       <Header title="Campaigns" />
       <main className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-5xl animate-fade-in-up">
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">Bulk Send Campaigns</h2>
@@ -92,7 +92,7 @@ export default function CampaignsPage() {
               </Button>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <div className="overflow-hidden rounded-xl border bg-card shadow-md">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
