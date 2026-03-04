@@ -67,43 +67,51 @@ export function AppSidebar() {
 
   const { role, isAdmin } = session.user;
   const userRole = role as UserRole;
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isSuperAdminRoute = pathname.startsWith("/super-admin");
 
-  return (
-    <Sidebar>
-      <SidebarHeader className="p-4">
-        <Link href="/library" className="text-lg font-semibold">
-          PEG
-        </Link>
-      </SidebarHeader>
+  // Admin-specific sidebar
+  if (isAdminRoute) {
+    return (
+      <Sidebar>
+        <SidebarHeader className="p-4">
+          <Link href="/library" className="text-lg font-semibold">
+            PEG
+          </Link>
+        </SidebarHeader>
 
-      <SidebarContent>
-        <nav aria-label="Main navigation">
-          <SidebarGroup>
-            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {NAV_ITEMS.filter((item) =>
-                  can(userRole, isAdmin, item.permission)
-                ).map((item) => {
-                  const isActive = pathname.startsWith(item.href);
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={isActive}>
-                        <Link
-                          href={item.href}
-                          aria-current={isActive ? "page" : undefined}
+        <SidebarContent>
+          <nav aria-label="Admin navigation">
+            {/* Back link */}
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <Link
+                        href="/library"
+                        className="gap-2 text-muted-foreground"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                         >
-                          {item.label}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+                          <path d="M10 12L6 8l4-4" />
+                        </svg>
+                        Back to App
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
 
-          {(isAdmin || userRole === "super_admin") && (
             <SidebarGroup>
               <SidebarGroupLabel>Administration</SidebarGroupLabel>
               <SidebarGroupContent>
@@ -126,7 +134,69 @@ export function AppSidebar() {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-          )}
+
+            {userRole === "super_admin" && (
+              <SidebarGroup>
+                <SidebarGroupLabel>Platform</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild>
+                        <Link href="/super-admin/orgs">Organizations</Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+          </nav>
+        </SidebarContent>
+
+        <SidebarFooter className="p-4">
+          <UserMenu />
+        </SidebarFooter>
+      </Sidebar>
+    );
+  }
+
+  // Default app sidebar
+  return (
+    <Sidebar>
+      <SidebarHeader className="p-4">
+        <Link href="/library" className="text-lg font-semibold">
+          PEG
+        </Link>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <nav aria-label="Main navigation">
+          <SidebarGroup>
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {NAV_ITEMS.filter((item) =>
+                  can(userRole, isAdmin, item.permission)
+                ).map((item) => {
+                  const isActive =
+                    pathname.startsWith(item.href) &&
+                    !isAdminRoute &&
+                    !isSuperAdminRoute;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link
+                          href={item.href}
+                          aria-current={isActive ? "page" : undefined}
+                        >
+                          {item.label}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
           {userRole === "super_admin" && (
             <SidebarGroup>
@@ -136,14 +206,12 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname.startsWith("/super-admin")}
+                      isActive={isSuperAdminRoute}
                     >
                       <Link
                         href="/super-admin/orgs"
                         aria-current={
-                          pathname.startsWith("/super-admin")
-                            ? "page"
-                            : undefined
+                          isSuperAdminRoute ? "page" : undefined
                         }
                       >
                         Organizations
