@@ -20,6 +20,7 @@ interface ContentCardProps {
   type: "pdf" | "link";
   url?: string;
   isFavorite?: boolean;
+  algoliaObjectId?: string;
 }
 
 export function ContentCard({
@@ -29,6 +30,7 @@ export function ContentCard({
   type,
   url,
   isFavorite,
+  algoliaObjectId,
 }: ContentCardProps) {
   const { toggleItem, hasItem } = useSendCart();
   const { toggleFavorite } = useLibraryStore();
@@ -100,7 +102,7 @@ export function ContentCard({
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          onClick={(e) => { e.stopPropagation(); toggleFavorite(id); }}
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(id, { title, type, url, algoliaObjectId }); }}
           aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart className={cn("h-3.5 w-3.5", isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground")} />

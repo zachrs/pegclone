@@ -88,7 +88,7 @@ export default function DashboardPage() {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Recent Messages
               </h2>
-              <Link href="/recipients" className="text-sm font-medium text-primary hover:underline">
+              <Link href="/tracking" className="text-sm font-medium text-primary hover:underline">
                 View all
               </Link>
             </div>

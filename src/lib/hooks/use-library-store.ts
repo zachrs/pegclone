@@ -31,15 +31,15 @@ interface LibraryState {
   favorites: Set<string>;
   activeFolder: string | null;
   searchQuery: string;
-  activeTab: "all" | "system" | "org";
+  activeTab: "system" | "org";
   viewMode: ViewMode;
   contentVersion: number;
 
   setActiveFolder: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
-  setActiveTab: (tab: "all" | "system" | "org") => void;
+  setActiveTab: (tab: "system" | "org") => void;
   setViewMode: (mode: ViewMode) => void;
-  toggleFavorite: (id: string) => void;
+  toggleFavorite: (id: string, meta?: { title: string; type: "pdf" | "link"; url?: string; algoliaObjectId?: string }) => void;
   addFolder: (name: string) => void;
   renameFolder: (id: string, name: string) => void;
   deleteFolder: (id: string) => void;
@@ -130,7 +130,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   ),
   activeFolder: null,
   searchQuery: "",
-  activeTab: "all",
+  activeTab: "org",
   contentVersion: 0,
   viewMode: (typeof window !== "undefined"
     ? (localStorage.getItem("peg-view-mode") as ViewMode) ?? "grid"
@@ -138,7 +138,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   setActiveFolder: (id) => set({ activeFolder: id }),
   setSearchQuery: (query) => set({ searchQuery: query }),
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  setActiveTab: (tab) => set({ activeTab: tab, searchQuery: "" }),
   setViewMode: (mode) => {
     if (typeof window !== "undefined") {
       localStorage.setItem("peg-view-mode", mode);
@@ -146,7 +146,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     set({ viewMode: mode });
   },
 
-  toggleFavorite: (id) => {
+  toggleFavorite: (id, meta) => {
     // Optimistic update
     set((state) => {
       const newFavorites = new Set(state.favorites);
@@ -163,7 +163,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       };
     });
     // Persist to DB (fire-and-forget with rollback on error)
-    toggleFavoriteAction(id).catch(() => {
+    toggleFavoriteAction(id, meta).catch(() => {
       // Rollback on failure
       set((state) => {
         const newFavorites = new Set(state.favorites);

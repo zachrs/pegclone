@@ -285,7 +285,7 @@ export default function AnalyticsPage() {
             <div className="rounded-xl border bg-card p-5 shadow-md">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent Campaigns</h2>
-                <Link href="/campaigns" className="text-xs font-medium text-primary hover:underline">View all</Link>
+                <Link href="/tracking" className="text-xs font-medium text-primary hover:underline">View all</Link>
               </div>
               <div className="space-y-2">
                 {campaigns.slice(0, 5).map((c) => (
