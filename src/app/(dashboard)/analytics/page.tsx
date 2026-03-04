@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getAnalytics, type AnalyticsData } from "@/lib/actions/analytics";
-import { toast } from "sonner";
+import { getCampaigns, type CampaignSummary } from "@/lib/actions/campaigns";
+import { getCampaignAnalytics } from "@/lib/actions/campaigns";
+import {
+  Download,
+  Send,
+  CircleCheck,
+  Eye,
+  TrendingUp,
+  Zap,
+  Bell,
+  BarChart3,
+  CircleX,
+} from "lucide-react";
 
 type DateRange = "7d" | "30d" | "90d" | "all";
 type ViewLevel = "org" | "provider";
@@ -21,6 +34,26 @@ export default function AnalyticsPage() {
   const [range, setRange] = useState<DateRange>("all");
   const [viewLevel, setViewLevel] = useState<ViewLevel>("org");
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
+  const [campaignStats, setCampaignStats] = useState<{
+    totalSent: number; totalDelivered: number; totalOpened: number; totalFailed: number;
+    openRate: number; deliveryRate: number; emailCount: number; smsCount: number; uniqueRecipients: number;
+  } | null>(null);
+
+  useEffect(() => {
+    getCampaigns().then(setCampaigns).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (selectedCampaign !== "all") {
+      getCampaignAnalytics(selectedCampaign)
+        .then(setCampaignStats)
+        .catch(() => setCampaignStats(null));
+    } else {
+      setCampaignStats(null);
+    }
+  }, [selectedCampaign]);
 
   useEffect(() => {
     getAnalytics(range)
@@ -29,33 +62,34 @@ export default function AnalyticsPage() {
   }, [range]);
 
   const stats = data ?? {
-    totalSent: 0,
-    totalDelivered: 0,
-    totalOpened: 0,
-    totalFailed: 0,
-    openRate: 0,
-    itemEngagementRate: 0,
-    reminderEffectiveness: 0,
-    totalRemindersSent: 0,
-    openedAfterReminder: 0,
-    emailCount: 0,
-    smsCount: 0,
+    totalSent: 0, totalDelivered: 0, totalOpened: 0, totalFailed: 0,
+    openRate: 0, itemEngagementRate: 0, reminderEffectiveness: 0,
+    totalRemindersSent: 0, openedAfterReminder: 0,
+    emailCount: 0, smsCount: 0, qrCount: 0, uniqueRecipients: 0,
+    topContent: [], recentMessages: [], senderBreakdown: [],
+  };
+
+  // Use campaign-scoped stats if a campaign is selected
+  const displayStats = campaignStats ? {
+    totalSent: campaignStats.totalSent,
+    totalDelivered: campaignStats.totalDelivered,
+    totalOpened: campaignStats.totalOpened,
+    totalFailed: campaignStats.totalFailed,
+    openRate: campaignStats.openRate,
+    emailCount: campaignStats.emailCount,
+    smsCount: campaignStats.smsCount,
     qrCount: 0,
-    uniqueRecipients: 0,
-    topContent: [],
-    recentMessages: [],
-    senderBreakdown: [],
+    uniqueRecipients: campaignStats.uniqueRecipients,
+    deliveryRate: campaignStats.deliveryRate,
+  } : {
+    ...stats,
+    deliveryRate: stats.totalSent > 0 ? Math.round((stats.totalDelivered / stats.totalSent) * 100) : 0,
   };
 
   const handleExportCSV = () => {
     const headers = ["Recipient", "Channel", "Status", "Sent At", "Opened At", "Sender"];
     const rows = stats.recentMessages.map((msg) => [
-      msg.recipientContact,
-      msg.deliveryChannel,
-      msg.status,
-      msg.sentAt,
-      msg.openedAt ?? "",
-      msg.senderName ?? "",
+      msg.recipientContact, msg.deliveryChannel, msg.status, msg.sentAt, msg.openedAt ?? "", msg.senderName ?? "",
     ]);
     const csv = [headers, ...rows].map((row) => row.map((c) => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -65,7 +99,6 @@ export default function AnalyticsPage() {
     a.download = `peg-analytics-${range}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("CSV exported");
   };
 
   return (
@@ -75,33 +108,44 @@ export default function AnalyticsPage() {
         {/* Controls bar */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            {/* View level toggle */}
-            <div className="flex rounded-lg border bg-gray-50 p-0.5">
+            <div className="flex gap-1 rounded-xl border bg-muted/50 p-1">
               <button
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${viewLevel === "org" ? "bg-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${viewLevel === "org" ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => setViewLevel("org")}
               >
                 Org-Level
               </button>
               <button
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${viewLevel === "provider" ? "bg-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${viewLevel === "provider" ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 onClick={() => setViewLevel("provider")}
               >
                 By Provider
               </button>
             </div>
             <p className="text-sm text-muted-foreground">
-              Showing{" "}
-              <span className="font-medium text-foreground">
-                {range === "7d" ? "last 7 days" : range === "30d" ? "last 30 days" : range === "90d" ? "last 90 days" : "all time"}
+              Showing <span className="font-medium text-foreground">
+                {selectedCampaign !== "all"
+                  ? campaigns.find((c) => c.id === selectedCampaign)?.name ?? "Campaign"
+                  : range === "7d" ? "last 7 days" : range === "30d" ? "last 30 days" : range === "90d" ? "last 90 days" : "all time"}
               </span>
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportCSV}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="mr-1.5">
-                <path d="M4 12h8M8 2v8M5 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+            {campaigns.length > 0 && (
+              <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by campaign" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Messages</SelectItem>
+                  {campaigns.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportCSV}>
+              <Download className="h-3.5 w-3.5" />
               Export CSV
             </Button>
             <Select value={range} onValueChange={(v) => setRange(v as DateRange)}>
@@ -120,83 +164,89 @@ export default function AnalyticsPage() {
 
         {/* Key metrics */}
         <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-          <MetricCard label="Messages Sent" value={stats.totalSent} />
-          <MetricCard label="Delivered" value={stats.totalDelivered} color="green" />
-          <MetricCard label="Opened" value={stats.totalOpened} color="teal" />
-          <MetricCard label="Open Rate" value={`${stats.openRate}%`} color="blue" />
-          <MetricCard label="Item Engagement" value={`${stats.itemEngagementRate}%`} color="purple" />
-          <MetricCard label="Reminder Effect." value={`${stats.reminderEffectiveness}%`} color="amber" />
+          <MetricCard label="Messages Sent" value={displayStats.totalSent} icon={<Send className="h-4 w-4" />} loading={!data} />
+          <MetricCard label="Delivered" value={displayStats.totalDelivered} icon={<CircleCheck className="h-4 w-4" />} color="green" loading={!data} />
+          <MetricCard label="Opened" value={displayStats.totalOpened} icon={<Eye className="h-4 w-4" />} color="teal" loading={!data} />
+          <MetricCard label="Open Rate" value={`${displayStats.openRate}%`} icon={<TrendingUp className="h-4 w-4" />} color="blue" loading={!data} />
+          <MetricCard label="Delivery Rate" value={`${displayStats.deliveryRate}%`} icon={<Zap className="h-4 w-4" />} color="purple" loading={!data} />
+          <MetricCard label="Reminder Effect." value={campaignStats ? "—" : `${stats.reminderEffectiveness}%`} icon={<Bell className="h-4 w-4" />} color="amber" loading={!data} />
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* Channel breakdown */}
-          <div className="rounded-lg border bg-white p-5">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">By Channel</h2>
+          <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">By Channel</h2>
             <div className="space-y-3">
-              <ChannelBar label="Email" count={stats.emailCount} total={stats.totalSent} color="#7c3aed" />
-              <ChannelBar label="SMS" count={stats.smsCount} total={stats.totalSent} color="#059669" />
-              {stats.qrCount > 0 && <ChannelBar label="QR Code" count={stats.qrCount} total={stats.totalSent} color="#d97706" />}
+              <ChannelBar label="Email" count={displayStats.emailCount} total={displayStats.totalSent} color="bg-violet-500" />
+              <ChannelBar label="SMS" count={displayStats.smsCount} total={displayStats.totalSent} color="bg-green-500" />
+              {!campaignStats && stats.qrCount > 0 && <ChannelBar label="QR Code" count={stats.qrCount} total={displayStats.totalSent} color="bg-amber-500" />}
             </div>
           </div>
 
           {/* Summary stats */}
-          <div className="rounded-lg border bg-white p-5">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Summary</h2>
+          <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Summary</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Unique recipients</dt>
-                <dd className="font-medium">{stats.uniqueRecipients}</dd>
+                <dd className="font-medium">{displayStats.uniqueRecipients}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Delivered</dt>
-                <dd className="font-medium text-green-600">{stats.totalDelivered}</dd>
+                <dd className="font-medium text-green-600">{displayStats.totalDelivered}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Failed</dt>
-                <dd className="font-medium text-red-600">{stats.totalFailed}</dd>
+                <dd className="font-medium text-red-600">{displayStats.totalFailed}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Awaiting open</dt>
-                <dd className="font-medium text-yellow-600">{stats.totalDelivered - stats.totalOpened}</dd>
+                <dd className="font-medium text-amber-600">{displayStats.totalDelivered - displayStats.totalOpened}</dd>
               </div>
               <div className="flex justify-between border-t pt-3">
                 <dt className="text-muted-foreground">Open rate</dt>
-                <dd className="font-semibold text-teal-700">{stats.openRate}%</dd>
+                <dd className="font-semibold text-primary">{displayStats.openRate}%</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Delivery rate</dt>
+                <dd className="font-semibold text-primary">{displayStats.deliveryRate}%</dd>
               </div>
             </dl>
           </div>
 
-          {/* Reminder effectiveness */}
-          <div className="rounded-lg border bg-white p-5">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Reminder Effectiveness</h2>
-            <dl className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Total reminders sent</dt>
-                <dd className="font-medium">{stats.totalRemindersSent}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Opened after reminder</dt>
-                <dd className="font-medium text-green-600">{stats.openedAfterReminder}</dd>
-              </div>
-              <div className="flex justify-between border-t pt-3">
-                <dt className="text-muted-foreground">Effectiveness rate</dt>
-                <dd className="font-semibold text-amber-600">{stats.reminderEffectiveness}%</dd>
-              </div>
-            </dl>
-            <p className="mt-3 text-xs text-muted-foreground">% of messages opened after a reminder was sent</p>
-          </div>
+          {/* Reminder effectiveness (org-level only) */}
+          {!campaignStats && (
+            <div className="rounded-xl border bg-card p-5 shadow-sm">
+              <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reminder Effectiveness</h2>
+              <dl className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Total reminders sent</dt>
+                  <dd className="font-medium">{stats.totalRemindersSent}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Opened after reminder</dt>
+                  <dd className="font-medium text-green-600">{stats.openedAfterReminder}</dd>
+                </div>
+                <div className="flex justify-between border-t pt-3">
+                  <dt className="text-muted-foreground">Effectiveness rate</dt>
+                  <dd className="font-semibold text-amber-600">{stats.reminderEffectiveness}%</dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-xs text-muted-foreground">% of messages opened after a reminder was sent</p>
+            </div>
+          )}
 
           {/* User activity (provider view) */}
-          {viewLevel === "provider" && (
-            <div className="rounded-lg border bg-white p-5">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">User Activity</h2>
+          {viewLevel === "provider" && !campaignStats && (
+            <div className="rounded-xl border bg-card p-5 shadow-sm">
+              <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">User Activity</h2>
               {stats.senderBreakdown.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No send activity yet.</p>
               ) : (
                 <div className="space-y-2">
                   {stats.senderBreakdown.map((sender, i) => (
-                    <div key={sender.name} className="flex items-center gap-3 rounded-md border px-3 py-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">{i + 1}</span>
+                    <div key={sender.name} className="flex items-center gap-3 rounded-lg border px-3 py-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span>
                       <span className="flex-1 text-sm font-medium">{sender.name}</span>
                       <Badge variant="outline" className="text-xs">{sender.count} send{sender.count !== 1 ? "s" : ""}</Badge>
                     </div>
@@ -206,65 +256,109 @@ export default function AnalyticsPage() {
             </div>
           )}
 
-          {/* Top content */}
-          <div className="rounded-lg border bg-white p-5 md:col-span-2">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Most Frequently Sent Content</h2>
-            {stats.topContent.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{data === null ? "Loading..." : "No messages sent yet."}</p>
-            ) : (
+          {/* Campaigns quick list */}
+          {!campaignStats && campaigns.length > 0 && (
+            <div className="rounded-xl border bg-card p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent Campaigns</h2>
+                <Link href="/campaigns" className="text-xs font-medium text-primary hover:underline">View all</Link>
+              </div>
               <div className="space-y-2">
-                {stats.topContent.map((item, i) => (
-                  <div key={item.title} className="flex items-center gap-3 rounded-md border px-3 py-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">{i + 1}</span>
-                    <span className="flex-1 text-sm font-medium">{item.title}</span>
-                    <Badge variant="outline" className="text-xs">{item.count} send{item.count !== 1 ? "s" : ""}</Badge>
-                  </div>
+                {campaigns.slice(0, 5).map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/campaigns/${c.id}`}
+                    className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-muted/30"
+                  >
+                    <span className="font-medium">{c.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{c.totalRecipients} recipients</span>
+                      <Badge variant="outline" className="text-xs">{c.openRate}% open</Badge>
+                    </div>
+                  </Link>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Top content */}
+          {!campaignStats && (
+            <div className="rounded-xl border bg-card p-5 shadow-sm md:col-span-2">
+              <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Most Frequently Sent Content</h2>
+              {stats.topContent.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-6 text-center">
+                  <BarChart3 className="h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">{data === null ? "Loading..." : "No messages sent yet."}</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {stats.topContent.map((item, i) => (
+                    <div key={item.title} className="flex items-center gap-3 rounded-lg border px-3 py-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span>
+                      <span className="flex-1 text-sm font-medium">{item.title}</span>
+                      <Badge variant="outline" className="text-xs">{item.count} send{item.count !== 1 ? "s" : ""}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Recent activity */}
-          <div className="rounded-lg border bg-white p-5 md:col-span-2">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Recent Activity</h2>
-            <div className="space-y-2">
-              {stats.recentMessages.slice(0, 8).map((msg) => (
-                <div key={msg.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className={msg.deliveryChannel === "email" ? "border-teal-200 bg-teal-50 text-teal-700" : "border-green-200 bg-green-50 text-green-700"}>
-                      {msg.deliveryChannel === "email" ? "Email" : "SMS"}
-                    </Badge>
-                    <span className="font-mono text-xs text-muted-foreground">{msg.recipientContact}</span>
-                    {viewLevel === "provider" && msg.senderName && (
-                      <span className="text-xs text-muted-foreground">by {msg.senderName}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">{new Date(msg.sentAt).toLocaleDateString()}</span>
-                    <StatusDot status={msg.status} opened={!!msg.openedAt} />
-                  </div>
+          {!campaignStats && (
+            <div className="rounded-xl border bg-card p-5 shadow-sm md:col-span-2">
+              <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent Activity</h2>
+              {stats.recentMessages.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-6 text-center">
+                  <Send className="h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No messages sent yet.</p>
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-2">
+                  {stats.recentMessages.slice(0, 8).map((msg) => (
+                    <div key={msg.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className={msg.deliveryChannel === "email" ? "border-primary/20 bg-primary/5 text-primary" : "border-green-200 bg-green-50 text-green-700"}>
+                          {msg.deliveryChannel === "email" ? "Email" : "SMS"}
+                        </Badge>
+                        <span className="font-mono text-xs text-muted-foreground">{msg.recipientContact}</span>
+                        {viewLevel === "provider" && msg.senderName && (
+                          <span className="text-xs text-muted-foreground">by {msg.senderName}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground">{new Date(msg.sentAt).toLocaleDateString()}</span>
+                        <StatusIndicator status={msg.status} opened={!!msg.openedAt} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
       </main>
     </>
   );
 }
 
-function MetricCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
-  const colorClass =
-    color === "green" ? "text-green-600"
-      : color === "teal" ? "text-teal-700"
-        : color === "blue" ? "text-blue-600"
-          : color === "purple" ? "text-purple-600"
-            : color === "amber" ? "text-amber-600"
-              : "text-foreground";
+function MetricCard({ label, value, icon, color, loading }: {
+  label: string; value: string | number; icon: React.ReactNode; color?: string; loading?: boolean;
+}) {
+  const colorClass = color === "green" ? "text-green-600" : color === "teal" ? "text-primary" : color === "blue" ? "text-blue-600" : color === "purple" ? "text-violet-600" : color === "amber" ? "text-amber-600" : "text-foreground";
+  const iconColor = color === "green" ? "text-green-500 bg-green-50" : color === "teal" ? "text-primary bg-primary/10" : color === "blue" ? "text-blue-500 bg-blue-50" : color === "purple" ? "text-violet-500 bg-violet-50" : color === "amber" ? "text-amber-500 bg-amber-50" : "text-muted-foreground bg-muted";
+
   return (
-    <div className="rounded-lg border bg-white p-4">
-      <p className={`text-2xl font-bold ${colorClass}`}>{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+    <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <div className={`flex h-6 w-6 items-center justify-center rounded-lg ${iconColor}`}>{icon}</div>
+      </div>
+      {loading ? (
+        <div className="h-7 w-14 animate-pulse rounded bg-muted" />
+      ) : (
+        <p className={`text-2xl font-bold ${colorClass}`}>{value}</p>
+      )}
     </div>
   );
 }
@@ -277,16 +371,16 @@ function ChannelBar({ label, count, total, color }: { label: string; count: numb
         <span className="font-medium">{label}</span>
         <span className="text-muted-foreground">{count} ({pct}%)</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
 }
 
-function StatusDot({ status, opened }: { status: string; opened: boolean }) {
-  if (opened) return <span className="flex items-center gap-1 text-xs text-green-600"><span className="h-2 w-2 rounded-full bg-green-500" />Opened</span>;
-  if (status === "failed") return <span className="flex items-center gap-1 text-xs text-red-600"><span className="h-2 w-2 rounded-full bg-red-500" />Failed</span>;
-  if (status === "delivered") return <span className="flex items-center gap-1 text-xs text-yellow-600"><span className="h-2 w-2 rounded-full bg-yellow-500" />Not opened</span>;
-  return <span className="flex items-center gap-1 text-xs text-gray-500"><span className="h-2 w-2 rounded-full bg-gray-500" />{status}</span>;
+function StatusIndicator({ status, opened }: { status: string; opened: boolean }) {
+  if (opened) return <span className="flex items-center gap-1.5 text-xs font-medium text-green-600"><Eye className="h-3 w-3" />Opened</span>;
+  if (status === "failed") return <span className="flex items-center gap-1.5 text-xs font-medium text-red-600"><CircleX className="h-3 w-3" />Failed</span>;
+  if (status === "delivered") return <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600"><CircleCheck className="h-3 w-3" />Not opened</span>;
+  return <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-current" />{status}</span>;
 }

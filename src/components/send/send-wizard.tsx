@@ -172,7 +172,17 @@ export function SendWizard() {
       } else {
         const dataRows = bulkPreview.slice(1);
         const contacts = dataRows.map((row) => row[2]?.trim()).filter((c): c is string => Boolean(c));
-        const results = await bulkSend({ contacts, contentBlocks });
+        const results = await bulkSend({
+          contacts,
+          contentBlocks,
+          name: bulkName || undefined,
+          deliveryChannel: (channel as string) === "qr_code" ? "email" : channel as "sms" | "email" | "sms_and_email",
+          reminders: remindersEnabled ? {
+            enabled: true,
+            maxReminders: reminderMax,
+            intervalHours: reminderIntervalHours,
+          } : undefined,
+        });
         setSentInfo({ count: results.length, channel: "bulk", qr: false });
       }
       setSent(true);
