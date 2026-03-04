@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { messages, messageEvents, contentItems } from "@/drizzle/schema";
+import { messages, messageEvents, contentItems, users } from "@/drizzle/schema";
 import { and, eq, gte, sql, desc, inArray } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
@@ -20,6 +20,8 @@ export interface AnalyticsData {
   smsCount: number;
   qrCount: number;
   uniqueRecipients: number;
+  activeProviders: number;
+  totalMaterialsSent: number;
   topContent: Array<{ title: string; count: number }>;
   recentMessages: Array<{
     id: string;
@@ -69,6 +71,18 @@ export async function getAnalytics(dateRange: "7d" | "30d" | "90d" | "all" = "al
   const opened = stats?.totalOpened ?? 0;
   const openRate = delivered > 0 ? Math.round((opened / delivered) * 100) : 0;
 
+  // Active providers: providers who sent at least 1 message in the period
+  const [providerResult] = await db.execute(sql`
+    select count(distinct m.sender_id)::int as count
+    from messages m
+    join users u on m.sender_id = u.id
+    where m.tenant_id = ${session.user.tenantId}
+      and u.role = 'provider'
+      ${dateFilter ? sql`and m.sent_at >= now() - interval '${sql.raw(dateRange === "7d" ? "7" : dateRange === "30d" ? "30" : "90")} days'` : sql``}
+      ${senderFilter ? sql`and m.sender_id = ${senderId}` : sql``}
+  `);
+  const activeProviders = (providerResult as unknown as { count: number })?.count ?? 0;
+
   // Top content (from contentBlocks JSONB)
   const topContentRows = await db
     .select({
@@ -77,12 +91,14 @@ export async function getAnalytics(dateRange: "7d" | "30d" | "90d" | "all" = "al
     .from(messages)
     .where(where);
 
-  // Tally content items
+  // Tally content items and count total materials sent
   const contentCounts = new Map<string, number>();
+  let totalMaterialsSent = 0;
   for (const row of topContentRows) {
     const blocks = row.contentBlocks as Array<{ type: string; content_item_id: string; order: number }>;
     for (const block of blocks) {
       if (block.content_item_id) {
+        totalMaterialsSent++;
         contentCounts.set(
           block.content_item_id,
           (contentCounts.get(block.content_item_id) ?? 0) + 1
@@ -198,6 +214,8 @@ export async function getAnalytics(dateRange: "7d" | "30d" | "90d" | "all" = "al
     smsCount: stats?.smsCount ?? 0,
     qrCount: stats?.qrCount ?? 0,
     uniqueRecipients: stats?.uniqueRecipients ?? 0,
+    activeProviders,
+    totalMaterialsSent,
     topContent,
     recentMessages: recentMessages.map((r) => ({
       id: String(r.id),
