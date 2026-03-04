@@ -129,7 +129,7 @@ export function ContentList({ items, emptyMessage }: ContentListProps) {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0"
-                      onClick={() => toggleFavorite(item.id)}
+                      onClick={() => toggleFavorite(item.id, { title: item.title, type: item.type, url: item.url, algoliaObjectId: item.source === "PEG Library" ? item.id : undefined })}
                       aria-label={item.isFavorite ? "Remove from favorites" : "Add to favorites"}
                     >
                       <Heart className={cn("h-3.5 w-3.5", item.isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground")} />

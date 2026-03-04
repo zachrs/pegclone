@@ -100,7 +100,7 @@ export function ContentCard({
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          onClick={(e) => { e.stopPropagation(); toggleFavorite(id); }}
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(id, { title, type, url, algoliaObjectId: source === "PEG Library" ? id : undefined }); }}
           aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart className={cn("h-3.5 w-3.5", isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground")} />

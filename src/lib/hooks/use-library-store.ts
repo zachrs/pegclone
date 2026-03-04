@@ -39,7 +39,7 @@ interface LibraryState {
   setSearchQuery: (query: string) => void;
   setActiveTab: (tab: "all" | "system" | "org") => void;
   setViewMode: (mode: ViewMode) => void;
-  toggleFavorite: (id: string) => void;
+  toggleFavorite: (id: string, meta?: { title: string; type: "pdf" | "link"; url?: string; algoliaObjectId?: string }) => void;
   addFolder: (name: string) => void;
   renameFolder: (id: string, name: string) => void;
   deleteFolder: (id: string) => void;
@@ -146,7 +146,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     set({ viewMode: mode });
   },
 
-  toggleFavorite: (id) => {
+  toggleFavorite: (id, meta) => {
     // Optimistic update
     set((state) => {
       const newFavorites = new Set(state.favorites);
@@ -163,7 +163,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       };
     });
     // Persist to DB (fire-and-forget with rollback on error)
-    toggleFavoriteAction(id).catch(() => {
+    toggleFavoriteAction(id, meta).catch(() => {
       // Rollback on failure
       set((state) => {
         const newFavorites = new Set(state.favorites);

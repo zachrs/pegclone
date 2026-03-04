@@ -235,11 +235,48 @@ export async function getFolderItems(folderId: string) {
 /**
  * Toggle favorite status for a content item.
  * Creates/removes from the user's favorites folder.
- * Fix #4: Persist favorites to database.
+ * For Algolia/system library items, upserts a content_items row first.
  */
-export async function toggleFavorite(contentItemId: string): Promise<boolean> {
+export async function toggleFavorite(
+  contentItemId: string,
+  itemMeta?: { title: string; type: "pdf" | "link"; url?: string; algoliaObjectId?: string }
+): Promise<boolean> {
   const session = await requireSession();
   const tenant = withTenant(session.user.tenantId);
+
+  let resolvedId = contentItemId;
+
+  // If this is an Algolia item, ensure it exists in content_items
+  if (itemMeta?.algoliaObjectId) {
+    const [existing] = await db
+      .select({ id: contentItems.id })
+      .from(contentItems)
+      .where(
+        and(
+          eq(contentItems.algoliaObjectId, itemMeta.algoliaObjectId),
+          isNull(contentItems.tenantId)
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      resolvedId = existing.id;
+    } else {
+      const [created] = await db
+        .insert(contentItems)
+        .values({
+          tenantId: null,
+          algoliaObjectId: itemMeta.algoliaObjectId,
+          source: "system_library",
+          title: itemMeta.title,
+          type: itemMeta.type,
+          url: itemMeta.url ?? null,
+          isActive: true,
+        })
+        .returning();
+      resolvedId = created!.id;
+    }
+  }
 
   // Find or create the favorites folder for this user
   let [favFolder] = await db
@@ -268,23 +305,23 @@ export async function toggleFavorite(contentItemId: string): Promise<boolean> {
   }
 
   // Check if already favorited
-  const [existing] = await db
+  const [existingFav] = await db
     .select({ id: folderItems.id })
     .from(folderItems)
     .where(
       and(
         eq(folderItems.folderId, favFolder.id),
-        eq(folderItems.contentItemId, contentItemId),
+        eq(folderItems.contentItemId, resolvedId),
         tenant.eq(folderItems.tenantId)
       )
     )
     .limit(1);
 
-  if (existing) {
+  if (existingFav) {
     // Remove from favorites
     await db
       .delete(folderItems)
-      .where(eq(folderItems.id, existing.id));
+      .where(eq(folderItems.id, existingFav.id));
     return false; // no longer favorited
   } else {
     // Add to favorites
@@ -293,7 +330,7 @@ export async function toggleFavorite(contentItemId: string): Promise<boolean> {
       .values({
         tenantId: session.user.tenantId,
         folderId: favFolder.id,
-        contentItemId,
+        contentItemId: resolvedId,
         addedBy: session.user.id,
         order: 0,
       })
