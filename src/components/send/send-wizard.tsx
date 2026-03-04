@@ -70,6 +70,8 @@ export function SendWizard() {
   // Success state
   const [sent, setSent] = useState(false);
   const [sentInfo, setSentInfo] = useState({ count: 0, channel: "", qr: false });
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrViewerUrl, setQrViewerUrl] = useState<string | null>(null);
 
   useEffect(() => { setOrderedItems(items); }, [items]);
 
@@ -147,27 +149,41 @@ export function SendWizard() {
     setSending(true);
 
     try {
+      // Fix #7: Build scheduledAt from date/time inputs
+      const scheduledAt = scheduleMode === "later" && scheduledDate && scheduledTime
+        ? new Date(`${scheduledDate}T${scheduledTime}`)
+        : undefined;
+
       if (mode === "single" && channel !== "qr_code") {
         const effectiveChannel = channel === "sms_and_email" ? "email" : channel;
         await sendMessage({
           recipientContact: contact.trim(),
           contentBlocks,
           deliveryChannel: effectiveChannel as "sms" | "email",
+          scheduledAt,
         });
         if (channel === "sms_and_email") {
           await sendMessage({
             recipientContact: contact.trim(),
             contentBlocks,
             deliveryChannel: "sms",
+            scheduledAt,
           });
         }
         setSentInfo({ count: 1, channel: channel === "sms_and_email" ? "SMS & Email" : channel, qr: false });
       } else if (channel === "qr_code") {
-        await sendMessage({
+        const result = await sendMessage({
           recipientContact: "QR Code",
           contentBlocks,
           deliveryChannel: "qr_code",
         });
+        // Fix #8: Generate real QR code
+        const appUrl = window.location.origin;
+        const viewerUrl = `${appUrl}/m/${result.accessToken}`;
+        setQrViewerUrl(viewerUrl);
+        const QRCode = (await import("qrcode")).default;
+        const dataUrl = await QRCode.toDataURL(viewerUrl, { width: 300, margin: 2 });
+        setQrDataUrl(dataUrl);
         setSentInfo({ count: 1, channel: "QR Code", qr: true });
       } else {
         const dataRows = bulkPreview.slice(1);
@@ -177,6 +193,7 @@ export function SendWizard() {
           contentBlocks,
           name: bulkName || undefined,
           deliveryChannel: (channel as string) === "qr_code" ? "email" : channel as "sms" | "email" | "sms_and_email",
+          scheduledAt,
           reminders: remindersEnabled ? {
             enabled: true,
             maxReminders: reminderMax,
@@ -228,17 +245,27 @@ export function SendWizard() {
                 : `Sent to ${sentInfo.count} recipients.`}
           </p>
         </div>
-        {sentInfo.qr && (
+        {sentInfo.qr && qrDataUrl && (
           <div className="rounded-xl border-2 border-dashed p-6">
-            <div className="grid h-40 w-40 grid-cols-5 grid-rows-5 gap-1">
-              {Array.from({ length: 25 }).map((_, i) => (
-                <div key={i} className={`rounded-sm ${[0, 1, 2, 4, 5, 6, 10, 12, 14, 18, 19, 20, 22, 23, 24].includes(i) ? "bg-gray-900" : "bg-white"}`} />
-              ))}
-            </div>
-            <p className="mt-3 font-mono text-xs text-muted-foreground">peg.app/m/qr-demo-token</p>
+            <img src={qrDataUrl} alt="QR Code" className="h-48 w-48" />
+            {qrViewerUrl && (
+              <p className="mt-3 max-w-[200px] break-all font-mono text-xs text-muted-foreground">{qrViewerUrl}</p>
+            )}
             <div className="mt-3 flex gap-3">
-              <Button variant="outline" size="sm" onClick={() => toast.info("Download would trigger in production")}>Download PNG</Button>
-              <Button variant="outline" size="sm" onClick={() => toast.info("Print dialog would open in production")}>Print</Button>
+              <Button variant="outline" size="sm" onClick={() => {
+                const a = document.createElement("a");
+                a.href = qrDataUrl;
+                a.download = "peg-qr-code.png";
+                a.click();
+              }}>Download PNG</Button>
+              <Button variant="outline" size="sm" onClick={() => {
+                const w = window.open();
+                if (w) {
+                  w.document.write(`<img src="${qrDataUrl}" />`);
+                  w.document.close();
+                  w.print();
+                }
+              }}>Print</Button>
             </div>
           </div>
         )}

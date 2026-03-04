@@ -1,9 +1,12 @@
 import { PgBoss } from "pg-boss";
+import { registerWorkers } from "./workers";
 
 let boss: PgBoss | null = null;
+let workersRegistered = false;
 
 /**
  * Get the singleton pg-boss instance. Lazily initializes on first call.
+ * Also registers job workers on first start.
  */
 export async function getQueue(): Promise<PgBoss> {
   if (boss) return boss;
@@ -25,6 +28,14 @@ export async function getQueue(): Promise<PgBoss> {
   });
 
   await boss.start();
+
+  // Register workers so queued jobs actually get processed
+  if (!workersRegistered) {
+    await registerWorkers(boss);
+    workersRegistered = true;
+    console.log("[pg-boss] Workers registered");
+  }
+
   return boss;
 }
 

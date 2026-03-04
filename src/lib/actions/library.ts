@@ -26,10 +26,43 @@ export async function getOrgContent() {
 }
 
 export async function getSystemContent(query: string) {
-  // In production, this would query Algolia.
-  // For now, search system_library content in Postgres.
   if (!query.trim()) return [];
 
+  // Fix #16: Use Algolia when configured, fall back to Postgres ILIKE
+  const algoliaAppId = process.env.ALGOLIA_APP_ID;
+  const algoliaApiKey = process.env.ALGOLIA_SEARCH_API_KEY;
+  const algoliaIndex = process.env.ALGOLIA_INDEX_NAME;
+
+  if (algoliaAppId && algoliaApiKey && algoliaIndex) {
+    try {
+      const { liteClient } = await import("algoliasearch/lite");
+      const client = liteClient(algoliaAppId, algoliaApiKey);
+      const { results } = await client.search({
+        requests: [{ indexName: algoliaIndex, query, hitsPerPage: 50 }],
+      });
+      const searchResult = results[0];
+      if (searchResult && "hits" in searchResult) {
+        return searchResult.hits.map((hit: Record<string, unknown>) => ({
+          id: String(hit.objectID ?? hit.id ?? ""),
+          tenantId: null,
+          algoliaObjectId: String(hit.objectID ?? ""),
+          source: "system_library" as const,
+          title: String(hit.title ?? ""),
+          description: hit.description ? String(hit.description) : null,
+          type: (hit.type === "pdf" ? "pdf" : "link") as "pdf" | "link",
+          url: hit.url ? String(hit.url) : null,
+          storagePath: null,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }));
+      }
+    } catch (err) {
+      console.warn("[library] Algolia search failed, falling back to Postgres:", err);
+    }
+  }
+
+  // Fallback: search system_library content in Postgres
   return db
     .select()
     .from(contentItems)
@@ -70,6 +103,7 @@ export async function addOrgContent(params: {
   url?: string;
   storagePath?: string;
   description?: string;
+  folderId?: string;
 }) {
   const session = await requireSession();
 
@@ -86,6 +120,17 @@ export async function addOrgContent(params: {
       isActive: true,
     })
     .returning();
+
+  // Fix #5: If a folder was selected, add the item to it
+  if (item && params.folderId) {
+    await db.insert(folderItems).values({
+      tenantId: session.user.tenantId,
+      folderId: params.folderId,
+      contentItemId: item.id,
+      addedBy: session.user.id,
+      order: 0,
+    }).onConflictDoNothing();
+  }
 
   return item;
 }
@@ -106,6 +151,7 @@ export async function getFolders() {
   const session = await requireSession();
   const tenant = withTenant(session.user.tenantId);
 
+  // Fix #21: Only show team folders that are published, plus user's own folders
   return db
     .select()
     .from(folders)
@@ -114,7 +160,7 @@ export async function getFolders() {
         tenant.eq(folders.tenantId),
         or(
           eq(folders.ownerId, session.user.id),
-          eq(folders.type, "team")
+          and(eq(folders.type, "team"), eq(folders.isPublished, true))
         )
       )
     )
@@ -184,6 +230,111 @@ export async function getFolderItems(folderId: string) {
       )
     )
     .orderBy(folderItems.order);
+}
+
+/**
+ * Toggle favorite status for a content item.
+ * Creates/removes from the user's favorites folder.
+ * Fix #4: Persist favorites to database.
+ */
+export async function toggleFavorite(contentItemId: string): Promise<boolean> {
+  const session = await requireSession();
+  const tenant = withTenant(session.user.tenantId);
+
+  // Find or create the favorites folder for this user
+  let [favFolder] = await db
+    .select({ id: folders.id })
+    .from(folders)
+    .where(
+      and(
+        tenant.eq(folders.tenantId),
+        eq(folders.ownerId, session.user.id),
+        eq(folders.type, "favorites")
+      )
+    )
+    .limit(1);
+
+  if (!favFolder) {
+    const [created] = await db
+      .insert(folders)
+      .values({
+        tenantId: session.user.tenantId,
+        ownerId: session.user.id,
+        name: "Favorites",
+        type: "favorites",
+      })
+      .returning();
+    favFolder = created!;
+  }
+
+  // Check if already favorited
+  const [existing] = await db
+    .select({ id: folderItems.id })
+    .from(folderItems)
+    .where(
+      and(
+        eq(folderItems.folderId, favFolder.id),
+        eq(folderItems.contentItemId, contentItemId),
+        tenant.eq(folderItems.tenantId)
+      )
+    )
+    .limit(1);
+
+  if (existing) {
+    // Remove from favorites
+    await db
+      .delete(folderItems)
+      .where(eq(folderItems.id, existing.id));
+    return false; // no longer favorited
+  } else {
+    // Add to favorites
+    await db
+      .insert(folderItems)
+      .values({
+        tenantId: session.user.tenantId,
+        folderId: favFolder.id,
+        contentItemId,
+        addedBy: session.user.id,
+        order: 0,
+      })
+      .onConflictDoNothing();
+    return true; // now favorited
+  }
+}
+
+/**
+ * Get all content item IDs that the current user has favorited.
+ */
+export async function getFavoriteIds(): Promise<string[]> {
+  const session = await requireSession();
+  const tenant = withTenant(session.user.tenantId);
+
+  // Find the favorites folder for this user
+  const [favFolder] = await db
+    .select({ id: folders.id })
+    .from(folders)
+    .where(
+      and(
+        tenant.eq(folders.tenantId),
+        eq(folders.ownerId, session.user.id),
+        eq(folders.type, "favorites")
+      )
+    )
+    .limit(1);
+
+  if (!favFolder) return [];
+
+  const items = await db
+    .select({ contentItemId: folderItems.contentItemId })
+    .from(folderItems)
+    .where(
+      and(
+        eq(folderItems.folderId, favFolder.id),
+        tenant.eq(folderItems.tenantId)
+      )
+    );
+
+  return items.map((i) => i.contentItemId);
 }
 
 export async function addToFolder(folderId: string, contentItemId: string) {

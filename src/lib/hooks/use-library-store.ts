@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { toggleFavorite as toggleFavoriteAction } from "@/lib/actions/library";
 
 /** Mock org content item for client-side demo */
 export interface OrgContentItem {
@@ -141,7 +142,8 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     set({ viewMode: mode });
   },
 
-  toggleFavorite: (id) =>
+  toggleFavorite: (id) => {
+    // Optimistic update
     set((state) => {
       const newFavorites = new Set(state.favorites);
       if (newFavorites.has(id)) {
@@ -155,7 +157,26 @@ export const useLibraryStore = create<LibraryState>((set) => ({
           c.id === id ? { ...c, isFavorite: !c.isFavorite } : c
         ),
       };
-    }),
+    });
+    // Persist to DB (fire-and-forget with rollback on error)
+    toggleFavoriteAction(id).catch(() => {
+      // Rollback on failure
+      set((state) => {
+        const newFavorites = new Set(state.favorites);
+        if (newFavorites.has(id)) {
+          newFavorites.delete(id);
+        } else {
+          newFavorites.add(id);
+        }
+        return {
+          favorites: newFavorites,
+          orgContent: state.orgContent.map((c) =>
+            c.id === id ? { ...c, isFavorite: !c.isFavorite } : c
+          ),
+        };
+      });
+    });
+  },
 
   addFolder: (name) =>
     set((state) => ({

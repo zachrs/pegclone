@@ -93,11 +93,12 @@ function AddLinkForm({ onClose }: { onClose: () => void }) {
     if (!title.trim() || !url.trim()) return;
     setSaving(true);
     try {
-      // Save to database
+      // Save to database (fix #5: pass folderId)
       await addOrgContentAction({
         title: title.trim(),
         type: "link",
         url: url.trim(),
+        folderId: folderId || undefined,
       });
       // Also update local Zustand store for instant UI feedback
       addOrgContent({
@@ -214,12 +215,13 @@ function UploadPdfForm({ onClose }: { onClose: () => void }) {
       const { url, pathname } = await response.json();
       setProgress(85);
 
-      // 2. Save content item to database
+      // 2. Save content item to database (fix #5: pass folderId)
       await addOrgContentAction({
         title: title.trim(),
         type: "pdf",
         url,
         storagePath: pathname,
+        folderId: folderId || undefined,
       });
 
       setProgress(100);

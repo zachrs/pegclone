@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getOrgInfo } from "@/lib/actions/auth";
 import {
   Sidebar,
   SidebarContent,
@@ -52,6 +54,13 @@ const ADMIN_ITEMS = [
 export function AppSidebar() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const [orgInfo, setOrgInfo] = useState<{ name: string; logoUrl: string | null; primaryColor: string } | null>(null);
+
+  useEffect(() => {
+    if (session?.user) {
+      getOrgInfo().then(setOrgInfo).catch(() => {});
+    }
+  }, [session?.user]);
 
   if (!session?.user) return null;
 
@@ -66,7 +75,14 @@ export function AppSidebar() {
       <Sidebar>
         <SidebarHeader className="p-4">
           <Link href="/library" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Patient Education Genius" className="h-8" />
+            {orgInfo?.logoUrl ? (
+              <img src={orgInfo.logoUrl} alt={orgInfo.name} className="h-8 w-8 rounded-lg object-contain" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-sm font-bold text-white">
+                {orgInfo?.name?.charAt(0) ?? "P"}
+              </div>
+            )}
+            <span className="text-sm font-semibold tracking-tight">Admin</span>
           </Link>
         </SidebarHeader>
 
@@ -139,8 +155,15 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <Link href="/library" className="text-lg font-semibold tracking-tight">
-          PEG
+        <Link href="/library" className="flex items-center gap-2">
+          {orgInfo?.logoUrl ? (
+            <img src={orgInfo.logoUrl} alt={orgInfo.name} className="h-8 w-8 rounded-lg object-contain" />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-sm font-bold text-white">
+              {orgInfo?.name?.charAt(0) ?? "P"}
+            </div>
+          )}
+          <span className="text-sm font-semibold tracking-tight truncate">{orgInfo?.name ?? "PEG"}</span>
         </Link>
       </SidebarHeader>
 

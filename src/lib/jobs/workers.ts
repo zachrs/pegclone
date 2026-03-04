@@ -1,6 +1,6 @@
 import type { PgBoss, Job } from "pg-boss";
 import { db } from "@/lib/db";
-import { messages, messageEvents } from "@/drizzle/schema";
+import { messages, messageEvents, recipients } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { sendEmail } from "@/lib/delivery/email";
 import { sendSms } from "@/lib/delivery/sms";
@@ -124,9 +124,45 @@ async function handleSendReminder(job: Job<SendReminderJob>) {
   if (!msg) return;
   if (msg.openedAt) return; // already opened, no reminder needed
 
+  // Get recipient contact for sending
+  const [recipient] = await db
+    .select({ contact: recipients.contact, contactType: recipients.contactType })
+    .from(recipients)
+    .where(eq(recipients.id, msg.recipientId))
+    .limit(1);
+
+  if (!recipient) return;
+
+  // Build viewer URL from access token hash
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://localhost:3000";
+  // We stored accessToken in the original send job; use the hash to find it
+  // For reminders, we need to reconstruct the viewer URL
+  // The accessTokenHash is already in the message, but we need the raw token
+  // which we don't store. Instead, we send a generic reminder with the same link.
+
+  // Actually send the reminder message
+  const reminderText = `Reminder: Your provider shared health information with you. Don't forget to review it!`;
+
+  if (msg.deliveryChannel === "email" || msg.deliveryChannel === "sms_and_email") {
+    await sendEmail({
+      to: recipient.contact,
+      subject: "Reminder: Health information from your provider",
+      text: reminderText,
+      html: buildReminderEmailHtml(reminderNumber),
+    });
+  }
+
+  if (msg.deliveryChannel === "sms" || msg.deliveryChannel === "sms_and_email") {
+    await sendSms({
+      to: recipient.contact,
+      body: reminderText,
+    });
+  }
+
   // Log the reminder event
   await logEvent(messageId, tenantId, "reminder_sent", {
     reminderNumber,
+    channel: msg.deliveryChannel,
   });
 
   // Schedule next reminder if we haven't hit max
@@ -204,6 +240,22 @@ async function logEvent(
     payload: payload ?? {},
     occurredAt: new Date(),
   });
+}
+
+function buildReminderEmailHtml(reminderNumber: number): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f9fafb">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;padding:24px">
+    <tr><td style="padding:24px;background:white;border-radius:12px;text-align:center">
+      <h2 style="margin:0 0 16px;color:#111827;font-size:20px">Reminder: Don&apos;t forget to review your materials</h2>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:15px">Your provider shared health information with you. Please review it when you have a moment. (Reminder ${reminderNumber})</p>
+      <p style="margin:24px 0 0;color:#9ca3af;font-size:12px">Use the original link from your first message to view your materials.</p>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
 function buildEmailHtml(viewerUrl: string): string {

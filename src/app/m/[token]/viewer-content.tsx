@@ -1,16 +1,90 @@
 "use client";
 
 import { useState } from "react";
-import type { ViewerMessage } from "@/lib/viewer/mock-data";
 
-export function ViewerContent({ message }: { message: ViewerMessage }) {
+interface ViewerMessageData {
+  id: string;
+  accessToken: string;
+  expired: boolean;
+  org: {
+    name: string;
+    logoUrl: string | null;
+    primaryColor: string;
+    secondaryColor: string | null;
+    phone: string | null;
+    website: string | null;
+  };
+  provider: {
+    name: string;
+    title: string | null;
+    photoUrl: string | null;
+  };
+  contentItems: Array<{
+    id: string;
+    title: string;
+    type: "pdf" | "link";
+    url: string;
+  }>;
+}
+
+export function ViewerContent({
+  message,
+  messageId,
+  tenantId,
+}: {
+  message: ViewerMessageData;
+  messageId: string;
+  tenantId: string;
+}) {
   const [viewedItems, setViewedItems] = useState<Set<string>>(new Set());
   const color = message.org.primaryColor;
+  const accent = message.org.secondaryColor ?? color;
+  const [optedOut, setOptedOut] = useState(false);
 
-  const handleView = (itemId: string, url: string) => {
+  const handleView = async (itemId: string, url: string, type: "pdf" | "link") => {
     setViewedItems((prev) => new Set(prev).add(itemId));
-    // In production, this would POST to /api/viewer/event to log item_viewed
-    window.open(url, "_blank", "noopener");
+
+    // Log item_viewed event via API
+    try {
+      await fetch("/api/viewer/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId,
+          tenantId,
+          contentItemId: itemId,
+          eventType: "item_viewed",
+        }),
+      });
+    } catch {
+      // Non-critical, don't block the user
+    }
+
+    // Fix #22: Use PDF proxy for PDFs (token-gated access), direct URL for links
+    if (type === "pdf") {
+      const proxyUrl = `/api/viewer/pdf?token=${encodeURIComponent(message.accessToken)}&itemId=${encodeURIComponent(itemId)}`;
+      window.open(proxyUrl, "_blank", "noopener");
+    } else {
+      window.open(url, "_blank", "noopener");
+    }
+  };
+
+  const handleOptOut = async () => {
+    try {
+      await fetch("/api/viewer/opt-out", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId,
+          tenantId,
+          accessToken: message.accessToken,
+        }),
+      });
+      setOptedOut(true);
+    } catch {
+      // Fallback
+      setOptedOut(true);
+    }
   };
 
   return (
@@ -43,7 +117,7 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
         </header>
 
         {/* Provider block */}
-        <div className="bg-white px-5 py-4 shadow-sm">
+        <div className="bg-white px-5 py-4 shadow-sm" style={{ borderLeft: `3px solid ${accent}` }}>
           <div className="flex items-center gap-3">
             {message.provider.photoUrl ? (
               <img
@@ -88,7 +162,7 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
               <button
                 key={item.id}
                 className="flex w-full items-center gap-3 rounded-xl bg-white p-4 shadow-sm transition-colors hover:bg-gray-50 active:bg-gray-100"
-                onClick={() => handleView(item.id, item.url)}
+                onClick={() => handleView(item.id, item.url, item.type)}
               >
                 {/* Icon */}
                 <div
@@ -204,7 +278,7 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline"
-                style={{ color }}
+                style={{ color: accent }}
               >
                 {message.org.website.replace(/^https?:\/\//, "")}
               </a>
@@ -218,19 +292,22 @@ export function ViewerContent({ message }: { message: ViewerMessage }) {
             </p>
           )}
           <div className="mt-4 border-t pt-4">
-            <p className="text-gray-400">
-              If you no longer wish to receive these messages, reply <strong>STOP</strong> to the text message or{" "}
-              <button
-                className="underline transition-colors hover:text-gray-600"
-                style={{ color }}
-                onClick={() => {
-                  // In production: POST to /api/viewer/opt-out with the access token
-                  alert("You have been unsubscribed. You will no longer receive messages from " + message.org.name + ".");
-                }}
-              >
-                click here to unsubscribe
-              </button>.
-            </p>
+            {optedOut ? (
+              <p className="text-green-600 font-medium">
+                You have been unsubscribed. You will no longer receive messages from {message.org.name}.
+              </p>
+            ) : (
+              <p className="text-gray-400">
+                If you no longer wish to receive these messages, reply <strong>STOP</strong> to the text message or{" "}
+                <button
+                  className="underline transition-colors hover:text-gray-600"
+                  style={{ color: accent }}
+                  onClick={handleOptOut}
+                >
+                  click here to unsubscribe
+                </button>.
+              </p>
+            )}
           </div>
           <p className="mt-4 text-gray-400">
             Powered by Patient Education Genius

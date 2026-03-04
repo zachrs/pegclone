@@ -17,6 +17,7 @@ import {
   getMessagesForContact,
   type RecipientSummary,
 } from "@/lib/actions/recipients";
+import { Button } from "@/components/ui/button";
 import {
   Search,
   Users,
@@ -26,6 +27,8 @@ import {
   Eye,
   Mail,
   MessageSquare,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,15 +40,22 @@ export default function RecipientsPage() {
     Awaited<ReturnType<typeof getMessagesForContact>>
   >([]);
   const [loaded, setLoaded] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 50;
+
+  useEffect(() => {
+    setPage(1); // Reset page on search change
+  }, [searchQuery]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      getRecipients(searchQuery || undefined)
-        .then((data) => { setRecipients(data); setLoaded(true); })
+      getRecipients(searchQuery || undefined, page, pageSize)
+        .then((data) => { setRecipients(data.items); setTotal(data.total); setLoaded(true); })
         .catch(() => setLoaded(true));
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, page]);
 
   useEffect(() => {
     if (!selectedContact) { setContactMessages([]); return; }
@@ -87,6 +97,21 @@ export default function RecipientsPage() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              {/* Pagination info */}
+              {total > pageSize && (
+                <div className="flex items-center justify-between border-b px-4 py-2 text-xs text-muted-foreground">
+                  <span>Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}</span>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="px-2">Page {page} of {Math.ceil(total / pageSize)}</span>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={page * pageSize >= total} onClick={() => setPage(page + 1)}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { messages, messageEvents } from "@/drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { validateTwilioSignature } from "@/lib/delivery/sms";
 
 /**
@@ -60,42 +60,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   }
 
-  // Find the message by looking up message_events that have this SID
-  // The send worker stores the SID in the event payload
-  const eventRows = await db
+  // Fix #20: Direct JSONB query instead of O(n^2) scan
+  const [matchedEvent] = await db
     .select({
       messageId: messageEvents.messageId,
       tenantId: messageEvents.tenantId,
     })
     .from(messageEvents)
-    .where(eq(messageEvents.eventType, "sent"))
-    .limit(100);
+    .where(
+      sql`${messageEvents.eventType} = 'sent' AND ${messageEvents.payload}->>'sid' = ${messageSid}`
+    )
+    .limit(1);
 
-  // Search for the matching SID in event payloads
-  let matchedMessageId: string | null = null;
-  let matchedTenantId: string | null = null;
-
-  for (const row of eventRows) {
-    // The worker stores { sid: "SM..." } in the payload
-    // Check the payload for matching SID
-    const events = await db
-      .select({ payload: messageEvents.payload })
-      .from(messageEvents)
-      .where(eq(messageEvents.messageId, row.messageId))
-      .limit(10);
-
-    for (const evt of events) {
-      const payload = evt.payload as Record<string, unknown> | null;
-      if (payload?.sid === messageSid) {
-        matchedMessageId = row.messageId;
-        matchedTenantId = row.tenantId;
-        break;
-      }
-    }
-    if (matchedMessageId) break;
-  }
-
-  if (matchedMessageId && matchedTenantId) {
+  if (matchedEvent) {
+    const matchedMessageId = matchedEvent.messageId;
+    const matchedTenantId = matchedEvent.tenantId;
     // Update message status
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),

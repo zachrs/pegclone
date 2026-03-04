@@ -1,12 +1,13 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { messages, recipients, bulkSends } from "@/drizzle/schema";
-import { eq, and } from "drizzle-orm";
+import { messages, recipients, bulkSends, organizations } from "@/drizzle/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
 import crypto from "crypto";
 import { enqueueDelivery } from "@/lib/jobs/enqueue";
+import { logAudit } from "@/lib/audit";
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -23,6 +24,7 @@ export async function sendMessage(params: {
   deliveryChannel: "sms" | "email" | "qr_code";
   scheduledAt?: Date;
   bulkSendId?: string;
+  subject?: string;
   reminders?: {
     enabled: boolean;
     maxReminders: number;
@@ -59,7 +61,7 @@ export async function sendMessage(params: {
   } else {
     // Look up existing recipient
     const existing = await db
-      .select({ id: recipients.id })
+      .select({ id: recipients.id, optedOut: recipients.optedOut })
       .from(recipients)
       .where(
         and(
@@ -70,6 +72,10 @@ export async function sendMessage(params: {
       .limit(1);
 
     if (existing[0]) {
+      // Fix #6: Check opt-out before sending
+      if (existing[0].optedOut) {
+        throw new Error(`Recipient ${params.recipientContact} has opted out of messages`);
+      }
       recipientId = existing[0].id;
       await db
         .update(recipients)
@@ -92,10 +98,38 @@ export async function sendMessage(params: {
     }
   }
 
+  // Fix #15: Check SMS throttling before sending SMS
+  if (params.deliveryChannel === "sms") {
+    const [org] = await db
+      .select({
+        smsThrottled: organizations.smsThrottled,
+        smsSendCountMonth: organizations.smsSendCountMonth,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, tenantId))
+      .limit(1);
+
+    if (org?.smsThrottled) {
+      throw new Error("SMS sending is currently throttled for your organization. Contact support.");
+    }
+  }
+
   // Create access token
   const accessToken = crypto.randomBytes(24).toString("base64url");
+
+  // Get link expiration from org settings, default 30 days
+  const [orgSettings] = await db
+    .select({ settings: organizations.settings })
+    .from(organizations)
+    .where(eq(organizations.id, tenantId))
+    .limit(1);
+
+  const linkExpirationDays = (orgSettings?.settings as Record<string, Record<string, number>> | null)?.delivery?.linkExpirationDays ?? 30;
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30);
+  expiresAt.setDate(expiresAt.getDate() + linkExpirationDays);
+
+  // Fix #27: Generate subject from content blocks
+  const subject = params.subject ?? "Your provider has shared health information with you";
 
   // Create message record in "queued" state
   const [message] = await db
@@ -105,6 +139,7 @@ export async function sendMessage(params: {
       senderId,
       recipientId,
       bulkSendId: params.bulkSendId ?? null,
+      subject,
       contentBlocks: params.contentBlocks,
       deliveryChannel: params.deliveryChannel,
       status: "queued",
@@ -114,6 +149,17 @@ export async function sendMessage(params: {
     })
     .returning();
   if (!message) throw new Error("Failed to create message");
+
+  // Fix #15: Increment SMS send count
+  if (params.deliveryChannel === "sms") {
+    await db
+      .update(organizations)
+      .set({
+        smsSendCountMonth: sql`${organizations.smsSendCountMonth} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, tenantId));
+  }
 
   // Enqueue for async delivery (email/sms only — QR doesn't need delivery)
   if (params.deliveryChannel !== "qr_code") {
@@ -144,6 +190,21 @@ export async function sendMessage(params: {
       })
       .where(eq(messages.id, message.id));
   }
+
+  // Audit log for message send
+  await logAudit({
+    tenantId,
+    userId: senderId,
+    action: "message.send",
+    resourceType: "message",
+    resourceId: message.id,
+    details: {
+      deliveryChannel: params.deliveryChannel,
+      recipientContact: params.recipientContact,
+      contentBlockCount: params.contentBlocks.length,
+      scheduled: !!params.scheduledAt,
+    },
+  });
 
   return { messageId: message.id, accessToken };
 }
@@ -209,6 +270,7 @@ export async function bulkSend(params: {
   contentBlocks: Array<{ type: "content_item"; content_item_id: string; order: number }>;
   name?: string;
   deliveryChannel?: "sms" | "email" | "sms_and_email";
+  scheduledAt?: Date;
   reminders?: {
     enabled: boolean;
     maxReminders: number;
@@ -239,6 +301,7 @@ export async function bulkSend(params: {
   if (!campaign) throw new Error("Failed to create bulk send campaign");
 
   const results: { contact: string; messageId: string }[] = [];
+  let failedCount = 0;
 
   for (const contact of params.contacts) {
     const isEmail = contact.includes("@");
@@ -248,33 +311,42 @@ export async function bulkSend(params: {
     if (params.deliveryChannel === "email") channel = "email";
     if (params.deliveryChannel === "sms") channel = "sms";
 
-    const result = await sendMessage({
-      recipientContact: contact,
-      contentBlocks: params.contentBlocks,
-      deliveryChannel: channel,
-      bulkSendId: campaign.id,
-      reminders: params.reminders,
-    });
-
-    results.push({ contact, messageId: result.messageId });
-
-    // For sms_and_email, send a second message via the other channel
-    if (params.deliveryChannel === "sms_and_email") {
-      const otherChannel: "email" | "sms" = channel === "email" ? "sms" : "email";
-      await sendMessage({
+    try {
+      const result = await sendMessage({
         recipientContact: contact,
         contentBlocks: params.contentBlocks,
-        deliveryChannel: otherChannel,
+        deliveryChannel: channel,
+        scheduledAt: params.scheduledAt,
         bulkSendId: campaign.id,
         reminders: params.reminders,
       });
+
+      results.push({ contact, messageId: result.messageId });
+
+      // For sms_and_email, send a second message via the other channel
+      if (params.deliveryChannel === "sms_and_email") {
+        const otherChannel: "email" | "sms" = channel === "email" ? "sms" : "email";
+        await sendMessage({
+          recipientContact: contact,
+          contentBlocks: params.contentBlocks,
+          deliveryChannel: otherChannel,
+          scheduledAt: params.scheduledAt,
+          bulkSendId: campaign.id,
+          reminders: params.reminders,
+        });
+      }
+    } catch (err) {
+      // Fix #30: Track failed sends, don't stop the whole batch
+      console.error(`[bulk-send] Failed for ${contact}:`, err);
+      failedCount++;
     }
   }
 
-  // Mark campaign as completed
+  // Fix #30: Set status to "failed" if all messages failed, otherwise "completed"
+  const finalStatus = failedCount === params.contacts.length ? "failed" : "completed";
   await db
     .update(bulkSends)
-    .set({ status: "completed", updatedAt: new Date() })
+    .set({ status: finalStatus, updatedAt: new Date() })
     .where(eq(bulkSends.id, campaign.id));
 
   return results;

@@ -11,7 +11,7 @@ import { SendCartBar } from "@/components/library/send-cart-bar";
 import { AddContentDialog } from "@/components/library/add-content-dialog";
 import { useLibraryStore } from "@/lib/hooks/use-library-store";
 import { useSendCart, type CartItem } from "@/lib/hooks/use-send-cart";
-import { getOrgContent, getSystemContent, getFolders, getFolderItems } from "@/lib/actions/library";
+import { getOrgContent, getSystemContent, getFolders, getFolderItems, getFavoriteIds } from "@/lib/actions/library";
 
 export default function LibraryPage() {
   const {
@@ -24,16 +24,29 @@ export default function LibraryPage() {
   const { addItem } = useSendCart();
   const [sendDialogItem, setSendDialogItem] = useState<CartItem | null>(null);
 
-  // DB-backed state
-  const [orgContent, setOrgContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null }>>([]);
-  const [systemContent, setSystemContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null }>>([]);
+  // DB-backed state (fix #23: include createdAt)
+  const [orgContent, setOrgContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
+  const [systemContent, setSystemContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
   const [folders, setFolders] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [folderItemIds, setFolderItemIds] = useState<Set<string>>(new Set());
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
+  // Load favorites from DB
+  useEffect(() => {
+    getFavoriteIds()
+      .then((ids) => {
+        const idSet = new Set(ids);
+        setFavoriteIds(idSet);
+        // Sync to Zustand store
+        useLibraryStore.setState({ favorites: idSet });
+      })
+      .catch(() => {});
+  }, []);
 
   // Load org content
   useEffect(() => {
     getOrgContent()
-      .then((data) => setOrgContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null }>))
+      .then((data) => setOrgContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>))
       .catch(() => {});
   }, []);
 
@@ -64,7 +77,7 @@ export default function LibraryPage() {
     }
     const timer = setTimeout(() => {
       getSystemContent(searchQuery)
-        .then((data) => setSystemContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null }>))
+        .then((data) => setSystemContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>))
         .catch(() => {});
     }, 300);
     return () => clearTimeout(timer);
@@ -89,7 +102,9 @@ export default function LibraryPage() {
     let items = orgContent;
 
     // Filter by folder
-    if (activeFolder && activeFolder !== "favorites" && folderItemIds.size > 0) {
+    if (activeFolder === "favorites") {
+      items = items.filter((item) => favoriteIds.has(item.id));
+    } else if (activeFolder && folderItemIds.size > 0) {
       items = items.filter((item) => folderItemIds.has(item.id));
     }
 
@@ -106,24 +121,26 @@ export default function LibraryPage() {
     return items.map((item) => ({
       id: item.id,
       title: item.title,
-      source: item.source ?? "org_upload",
+      source: item.source === "org_upload" ? "Your Organization" : (item.source ?? "Organization"),
       type: item.type,
       url: item.url ?? undefined,
-      isFavorite: false,
+      isFavorite: favoriteIds.has(item.id),
+      createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : undefined,
     }));
-  }, [orgContent, activeFolder, searchQuery, activeTab, folderItemIds]);
+  }, [orgContent, activeFolder, searchQuery, activeTab, folderItemIds, favoriteIds]);
 
   const filteredSystemContent = useMemo(() => {
     if (activeTab === "org") return [];
     return systemContent.map((item) => ({
       id: item.id,
       title: item.title,
-      source: item.source ?? "system_library",
+      source: item.source === "system_library" ? "PEG Library" : (item.source ?? "PEG Library"),
       type: item.type as "pdf" | "link",
       url: item.url ?? undefined,
-      isFavorite: false,
+      isFavorite: favoriteIds.has(item.id),
+      createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : undefined,
     }));
-  }, [systemContent, activeTab]);
+  }, [systemContent, activeTab, favoriteIds]);
 
   const handleSendSingle = (item: CartItem) => {
     addItem(item);
