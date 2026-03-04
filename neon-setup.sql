@@ -74,6 +74,8 @@ CREATE TABLE IF NOT EXISTS users (
   deactivated_at TIMESTAMPTZ,
   settings JSONB DEFAULT '{}',
   mfa_enabled BOOLEAN NOT NULL DEFAULT false,
+  invite_token_hash TEXT,
+  invite_expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

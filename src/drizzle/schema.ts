@@ -136,6 +136,8 @@ export const users = pgTable(
     deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
     settings: jsonb("settings").default({}),
     mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
+    inviteTokenHash: text("invite_token_hash"),
+    inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

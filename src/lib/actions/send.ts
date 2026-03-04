@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { messages, recipients } from "@/drizzle/schema";
+import { messages, recipients, bulkSends } from "@/drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
@@ -22,6 +22,7 @@ export async function sendMessage(params: {
   contentBlocks: Array<{ type: "content_item"; content_item_id: string; order: number }>;
   deliveryChannel: "sms" | "email" | "qr_code";
   scheduledAt?: Date;
+  bulkSendId?: string;
   reminders?: {
     enabled: boolean;
     maxReminders: number;
@@ -103,6 +104,7 @@ export async function sendMessage(params: {
       tenantId,
       senderId,
       recipientId,
+      bulkSendId: params.bulkSendId ?? null,
       contentBlocks: params.contentBlocks,
       deliveryChannel: params.deliveryChannel,
       status: "queued",
@@ -200,25 +202,80 @@ async function directDeliver(
 
 /**
  * Bulk send to multiple recipients from parsed CSV data.
+ * Creates a bulk_sends campaign record and links all messages to it.
  */
 export async function bulkSend(params: {
   contacts: string[];
   contentBlocks: Array<{ type: "content_item"; content_item_id: string; order: number }>;
+  name?: string;
+  deliveryChannel?: "sms" | "email" | "sms_and_email";
+  reminders?: {
+    enabled: boolean;
+    maxReminders: number;
+    intervalHours: number;
+  };
 }) {
+  const session = await requireSession();
+  const tenantId = session.user.tenantId;
+
+  // Determine dominant channel for campaign record
+  const channelForCampaign = params.deliveryChannel ?? "email";
+
+  // Create bulk send campaign record
+  const [campaign] = await db
+    .insert(bulkSends)
+    .values({
+      tenantId,
+      createdBy: session.user.id,
+      name: params.name || `Bulk Send - ${new Date().toLocaleDateString()}`,
+      contentBlocks: params.contentBlocks,
+      deliveryChannel: channelForCampaign,
+      totalRecipients: params.contacts.length,
+      status: "sending",
+      sentAt: new Date(),
+    })
+    .returning();
+
+  if (!campaign) throw new Error("Failed to create bulk send campaign");
+
   const results: { contact: string; messageId: string }[] = [];
 
   for (const contact of params.contacts) {
     const isEmail = contact.includes("@");
-    const channel = isEmail ? "email" : "sms";
+    let channel: "email" | "sms" = isEmail ? "email" : "sms";
+
+    // Override channel if explicitly set (and not sms_and_email)
+    if (params.deliveryChannel === "email") channel = "email";
+    if (params.deliveryChannel === "sms") channel = "sms";
 
     const result = await sendMessage({
       recipientContact: contact,
       contentBlocks: params.contentBlocks,
-      deliveryChannel: channel as "email" | "sms",
+      deliveryChannel: channel,
+      bulkSendId: campaign.id,
+      reminders: params.reminders,
     });
 
     results.push({ contact, messageId: result.messageId });
+
+    // For sms_and_email, send a second message via the other channel
+    if (params.deliveryChannel === "sms_and_email") {
+      const otherChannel: "email" | "sms" = channel === "email" ? "sms" : "email";
+      await sendMessage({
+        recipientContact: contact,
+        contentBlocks: params.contentBlocks,
+        deliveryChannel: otherChannel,
+        bulkSendId: campaign.id,
+        reminders: params.reminders,
+      });
+    }
   }
+
+  // Mark campaign as completed
+  await db
+    .update(bulkSends)
+    .set({ status: "completed", updatedAt: new Date() })
+    .where(eq(bulkSends.id, campaign.id));
 
   return results;
 }

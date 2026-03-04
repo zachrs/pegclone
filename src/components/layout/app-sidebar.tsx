@@ -24,22 +24,22 @@ import {
   Send,
   Users,
   BarChart3,
-  User,
   ArrowLeft,
   Palette,
   Bell,
   Settings,
   Building2,
   UserCog,
+  Megaphone,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", permission: "library.view" as const, icon: LayoutDashboard },
   { label: "Library", href: "/library", permission: "library.view" as const, icon: Library },
   { label: "Send", href: "/send", permission: "send.create" as const, icon: Send },
+  { label: "Campaigns", href: "/campaigns", permission: "send.create" as const, icon: Megaphone },
   { label: "Recipients", href: "/recipients", permission: "recipients.view" as const, icon: Users },
   { label: "Analytics", href: "/analytics", permission: "analytics.personal" as const, icon: BarChart3 },
-  { label: "Profile", href: "/profile", permission: "library.view" as const, icon: User },
 ];
 
 const ADMIN_ITEMS = [
@@ -65,8 +65,8 @@ export function AppSidebar() {
     return (
       <Sidebar>
         <SidebarHeader className="p-4">
-          <Link href="/library" className="text-lg font-semibold tracking-tight">
-            PEG
+          <Link href="/library" className="flex items-center gap-2">
+            <img src="/logo.svg" alt="Patient Education Genius" className="h-8" />
           </Link>
         </SidebarHeader>
 

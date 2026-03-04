@@ -155,6 +155,92 @@ export async function toggleMfa(
 }
 
 /**
+ * Get the current user's profile info.
+ */
+export async function getProfile(): Promise<{
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  title: string | null;
+  photoUrl: string | null;
+  showPhotoOnMessages: boolean;
+}> {
+  const session = await requireSession();
+
+  const [user] = await db
+    .select({
+      id: users.id,
+      fullName: users.fullName,
+      email: users.email,
+      role: users.role,
+      title: users.title,
+      photoUrl: users.photoUrl,
+      settings: users.settings,
+    })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+
+  if (!user) throw new Error("User not found");
+
+  const settings = (user.settings ?? {}) as Record<string, unknown>;
+
+  return {
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    role: user.role,
+    title: user.title,
+    photoUrl: user.photoUrl,
+    showPhotoOnMessages: (settings.showPhotoOnMessages as boolean) ?? true,
+  };
+}
+
+/**
+ * Update the current user's profile photo URL.
+ */
+export async function updateProfilePhoto(
+  photoUrl: string | null
+): Promise<{ success: boolean }> {
+  const session = await requireSession();
+
+  await db
+    .update(users)
+    .set({ photoUrl, updatedAt: new Date() })
+    .where(eq(users.id, session.user.id));
+
+  return { success: true };
+}
+
+/**
+ * Toggle whether the user's photo is shown on patient-facing messages.
+ */
+export async function updateShowPhotoOnMessages(
+  show: boolean
+): Promise<{ success: boolean }> {
+  const session = await requireSession();
+
+  const [user] = await db
+    .select({ settings: users.settings })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+
+  const currentSettings = ((user?.settings ?? {}) as Record<string, unknown>);
+
+  await db
+    .update(users)
+    .set({
+      settings: { ...currentSettings, showPhotoOnMessages: show },
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, session.user.id));
+
+  return { success: true };
+}
+
+/**
  * Dev-only: return a fake session using the first active user in the DB.
  */
 async function getDevSession(): Promise<PegSession | null> {

@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Settings, LogOut } from "lucide-react";
+import { Settings, LogOut, User } from "lucide-react";
 
 export function UserMenu() {
   const { data: session } = useSession();
@@ -51,6 +51,12 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="cursor-pointer gap-2">
+          <Link href="/profile">
+            <User className="h-4 w-4" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
         {showAdmin && (
           <DropdownMenuItem asChild className="cursor-pointer gap-2">
             <Link href="/admin/users">
@@ -59,6 +65,7 @@ export function UserMenu() {
             </Link>
           </DropdownMenuItem>
         )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="cursor-pointer gap-2"
