@@ -919,3 +919,115 @@ export async function overrideSmsThrottle(orgId: string) {
     })
     .where(eq(organizations.id, orgId));
 }
+
+export async function bulkInviteUsers(
+  rows: Array<{
+    fullName: string;
+    email: string;
+    role: UserRole;
+    isAdmin: boolean;
+    title?: string;
+  }>
+): Promise<{ total: number; invited: number; skipped: Array<{ email: string; reason: string }> }> {
+  const session = await requireSession();
+  requirePermission(session.user.role, session.user.isAdmin, "admin.users");
+
+  // Fetch existing emails in this tenant to skip duplicates
+  const existingUsers = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.tenantId, session.user.tenantId));
+  const existingEmails = new Set(existingUsers.map((u) => u.email.toLowerCase()));
+
+  // Get org name for invite emails
+  const [org] = await db
+    .select({ name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, session.user.tenantId))
+    .limit(1);
+  const orgName = org?.name ?? "Patient Education Genius";
+
+  const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+
+  const skipped: Array<{ email: string; reason: string }> = [];
+  let invited = 0;
+
+  for (const row of rows) {
+    const email = row.email.trim().toLowerCase();
+
+    if (!email || !email.includes("@")) {
+      skipped.push({ email: row.email, reason: "Invalid email" });
+      continue;
+    }
+
+    if (!row.fullName.trim()) {
+      skipped.push({ email, reason: "Missing name" });
+      continue;
+    }
+
+    if (existingEmails.has(email)) {
+      skipped.push({ email, reason: "Already exists" });
+      continue;
+    }
+
+    // Prevent non-super-admins from creating super_admin users
+    const role = row.role === "super_admin" && session.user.role !== "super_admin"
+      ? "org_user"
+      : row.role;
+
+    const token = generateInviteToken();
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const placeholderHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+
+    await db.insert(users).values({
+      tenantId: session.user.tenantId,
+      passwordHash: placeholderHash,
+      email,
+      fullName: row.fullName.trim(),
+      role,
+      isAdmin: row.isAdmin,
+      title: row.title?.trim() || null,
+      isActive: false,
+      inviteTokenHash: tokenHash,
+      inviteExpiresAt: expiresAt,
+    });
+
+    const inviteUrl = `${baseUrl}/accept-invite?token=${token}`;
+    await sendEmail({
+      to: email,
+      subject: `You've been invited to ${orgName}`,
+      text: `Hi ${row.fullName},\n\nYou've been invited to join ${orgName} on Patient Education Genius.\n\nClick the link below to set your password and activate your account:\n${inviteUrl}\n\nThis invitation expires in 7 days.\n\nBest,\n${orgName}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2 style="color: #0F766E;">You're Invited</h2>
+          <p>Hi ${row.fullName},</p>
+          <p>You've been invited to join <strong>${orgName}</strong> on Patient Education Genius.</p>
+          <p>
+            <a href="${inviteUrl}" style="display: inline-block; background: #0F766E; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+              Set Your Password
+            </a>
+          </p>
+          <p style="color: #6b7280; font-size: 14px;">This invitation expires in 7 days.</p>
+        </div>
+      `,
+    }).catch(() => {
+      // Don't fail the whole batch if one email fails
+    });
+
+    existingEmails.add(email);
+    invited++;
+  }
+
+  await logAudit({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    action: "user.bulk_invite",
+    resourceType: "user",
+    details: { total: rows.length, invited, skippedCount: skipped.length },
+  });
+
+  return { total: rows.length, invited, skipped };
+}
