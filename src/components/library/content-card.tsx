@@ -2,14 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useSendCart, type CartItem } from "@/lib/hooks/use-send-cart";
 import { useLibraryStore } from "@/lib/hooks/use-library-store";
 import { cn } from "@/lib/utils";
 import {
-  Check,
   ExternalLink,
   Heart,
-  Send,
   FileText,
   Link as LinkIcon,
 } from "lucide-react";
@@ -31,7 +30,6 @@ export function ContentCard({
   type,
   url,
   isFavorite,
-  onSendSingle,
 }: ContentCardProps) {
   const { toggleItem, hasItem } = useSendCart();
   const { toggleFavorite } = useLibraryStore();
@@ -40,8 +38,9 @@ export function ContentCard({
 
   return (
     <div
+      onClick={() => toggleItem(cartItem)}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-md card-hover hover:shadow-lg hover:border-primary/20",
+        "group relative flex h-[160px] cursor-pointer flex-col overflow-hidden rounded-xl border bg-card shadow-md card-hover hover:shadow-lg hover:border-primary/20",
         isSelected && "ring-2 ring-primary ring-offset-1"
       )}
     >
@@ -75,21 +74,25 @@ export function ContentCard({
       </div>
 
       {/* Action bar */}
-      <div className="flex items-center border-t px-1 py-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn("h-8 flex-1 gap-1.5 text-xs", isSelected && "text-primary")}
-          onClick={() => toggleItem(cartItem)}
+      <div className="flex items-center border-t px-2 py-1">
+        <div
+          className="flex flex-1 items-center gap-2 py-1"
+          onClick={(e) => e.stopPropagation()}
         >
-          <Check className={cn("h-3.5 w-3.5", isSelected ? "opacity-100" : "opacity-40")} />
-          {isSelected ? "Selected" : "Select"}
-        </Button>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => toggleItem(cartItem)}
+            aria-label={isSelected ? "Deselect item" : "Select item"}
+          />
+          <span className={cn("text-xs", isSelected ? "text-primary font-medium" : "text-muted-foreground")}>
+            {isSelected ? "Selected" : "Select"}
+          </span>
+        </div>
         <Button
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          onClick={() => { if (url) window.open(url, "_blank"); }}
+          onClick={(e) => { e.stopPropagation(); if (url) window.open(url, "_blank"); }}
           aria-label="View content"
         >
           <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
@@ -98,19 +101,10 @@ export function ContentCard({
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          onClick={() => toggleFavorite(id)}
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(id); }}
           aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart className={cn("h-3.5 w-3.5", isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground")} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={() => onSendSingle?.(cartItem)}
-          aria-label="Send this item"
-        >
-          <Send className="h-3.5 w-3.5 text-muted-foreground" />
         </Button>
       </div>
     </div>
