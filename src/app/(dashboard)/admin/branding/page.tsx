@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,8 @@ export default function AdminBrandingPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [website, setWebsite] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getOrgBranding()
@@ -35,6 +37,43 @@ export default function AdminBrandingPage() {
       })
       .catch(() => {});
   }, []);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingLogo(true);
+    try {
+      const response = await fetch(
+        `/api/upload?filename=${encodeURIComponent(file.name)}&folder=logos`,
+        { method: "POST", body: file }
+      );
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error ?? "Upload failed");
+      }
+      const { url } = await response.json();
+      setLogoUrl(url);
+      // Persist immediately
+      await updateBranding({
+        name: name.trim(),
+        primaryColor,
+        secondaryColor: secondaryColor.trim() || null,
+        logoUrl: url,
+        phone: phone.trim(),
+        address: address.trim(),
+        website: website.trim(),
+      });
+      toast.success("Logo uploaded");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      toast.error(msg);
+    } finally {
+      setUploadingLogo(false);
+      // Reset input so same file can be re-selected
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
 
   const handleSave = async () => {
     await updateBranding({
@@ -70,14 +109,44 @@ export default function AdminBrandingPage() {
                 )}
               </div>
               <div>
-                <Button variant="outline" size="sm" disabled>
-                  Upload Logo
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingLogo}
+                  onClick={() => logoInputRef.current?.click()}
+                >
+                  {uploadingLogo ? "Uploading..." : "Upload Logo"}
                 </Button>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.svg,.webp"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
                 <p className="mt-1 text-xs text-muted-foreground">
                   Recommended: 200x200px, PNG or SVG.
-                  <br />
-                  Logo upload requires GCP Cloud Storage (coming soon).
                 </p>
+                {logoUrl && (
+                  <button
+                    className="mt-1 text-xs text-red-500 hover:text-red-700"
+                    onClick={async () => {
+                      setLogoUrl(null);
+                      await updateBranding({
+                        name: name.trim(),
+                        primaryColor,
+                        secondaryColor: secondaryColor.trim() || null,
+                        logoUrl: null,
+                        phone: phone.trim(),
+                        address: address.trim(),
+                        website: website.trim(),
+                      });
+                      toast.success("Logo removed");
+                    }}
+                  >
+                    Remove logo
+                  </button>
+                )}
               </div>
             </div>
           </section>
