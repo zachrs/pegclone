@@ -46,12 +46,6 @@ export default function CampaignsPanel() {
               View past bulk sends, delivery rates, and open rates per campaign.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/send" className="gap-2">
-              <Send className="h-4 w-4" />
-              New Campaign
-            </Link>
-          </Button>
         </div>
 
         {!loaded ? (

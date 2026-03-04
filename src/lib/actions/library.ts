@@ -342,6 +342,7 @@ export async function toggleFavorite(
 
 /**
  * Get all content item IDs that the current user has favorited.
+ * Returns both the DB id and algoliaObjectId so the client can match either.
  */
 export async function getFavoriteIds(): Promise<string[]> {
   const session = await requireSession();
@@ -363,8 +364,12 @@ export async function getFavoriteIds(): Promise<string[]> {
   if (!favFolder) return [];
 
   const items = await db
-    .select({ contentItemId: folderItems.contentItemId })
+    .select({
+      contentItemId: folderItems.contentItemId,
+      algoliaObjectId: contentItems.algoliaObjectId,
+    })
     .from(folderItems)
+    .innerJoin(contentItems, eq(folderItems.contentItemId, contentItems.id))
     .where(
       and(
         eq(folderItems.folderId, favFolder.id),
@@ -372,7 +377,55 @@ export async function getFavoriteIds(): Promise<string[]> {
       )
     );
 
-  return items.map((i) => i.contentItemId);
+  // Return both DB ids and algolia object IDs so UI can match system library items
+  const ids: string[] = [];
+  for (const i of items) {
+    ids.push(i.contentItemId);
+    if (i.algoliaObjectId) ids.push(i.algoliaObjectId);
+  }
+  return ids;
+}
+
+/**
+ * Get all favorited content items (including system library items).
+ * Used in "My Materials" view to show favorites alongside uploads.
+ */
+export async function getFavoritedContent() {
+  const session = await requireSession();
+  const tenant = withTenant(session.user.tenantId);
+
+  const [favFolder] = await db
+    .select({ id: folders.id })
+    .from(folders)
+    .where(
+      and(
+        tenant.eq(folders.tenantId),
+        eq(folders.ownerId, session.user.id),
+        eq(folders.type, "favorites")
+      )
+    )
+    .limit(1);
+
+  if (!favFolder) return [];
+
+  return db
+    .select({
+      id: contentItems.id,
+      title: contentItems.title,
+      source: contentItems.source,
+      type: contentItems.type,
+      url: contentItems.url,
+      algoliaObjectId: contentItems.algoliaObjectId,
+      createdAt: contentItems.createdAt,
+    })
+    .from(folderItems)
+    .innerJoin(contentItems, eq(folderItems.contentItemId, contentItems.id))
+    .where(
+      and(
+        eq(folderItems.folderId, favFolder.id),
+        tenant.eq(folderItems.tenantId)
+      )
+    );
 }
 
 export async function addToFolder(folderId: string, contentItemId: string) {
