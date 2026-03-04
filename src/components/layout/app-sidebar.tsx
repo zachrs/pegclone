@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Library,
-  Users,
   BarChart3,
   ArrowLeft,
   Palette,
@@ -30,14 +29,13 @@ import {
   Settings,
   Building2,
   UserCog,
-  Megaphone,
+  Activity,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", permission: "library.view" as const, icon: LayoutDashboard },
   { label: "Library", href: "/library", permission: "library.view" as const, icon: Library },
-  { label: "Campaigns", href: "/campaigns", permission: "send.create" as const, icon: Megaphone },
-  { label: "Recipients", href: "/recipients", permission: "recipients.view" as const, icon: Users },
+  { label: "Tracking", href: "/tracking", permission: "send.create" as const, icon: Activity },
   { label: "Analytics", href: "/analytics", permission: "analytics.personal" as const, icon: BarChart3 },
 ];
 
@@ -191,23 +189,6 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
 
-          {userRole === "super_admin" && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Platform</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={isSuperAdminRoute}>
-                      <Link href="/super-admin/orgs" aria-current={isSuperAdminRoute ? "page" : undefined} className="gap-2.5">
-                        <Building2 className="h-4 w-4" />
-                        Organizations
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
         </nav>
       </SidebarContent>
 

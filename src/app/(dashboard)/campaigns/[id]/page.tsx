@@ -91,7 +91,7 @@ export default function CampaignDetailPage() {
           <div className="mx-auto max-w-5xl py-16 text-center">
             <p className="text-muted-foreground">Campaign not found.</p>
             <Button variant="outline" asChild className="mt-4">
-              <Link href="/campaigns">Back to Campaigns</Link>
+              <Link href="/tracking">Back to Tracking</Link>
             </Button>
           </div>
         </main>
