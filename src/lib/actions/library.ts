@@ -168,7 +168,7 @@ export async function getFolders() {
     .orderBy(folders.name);
 }
 
-export async function createFolder(name: string) {
+export async function createFolder(name: string, type: "personal" | "team" = "personal") {
   const session = await requireSession();
 
   const [folder] = await db
@@ -177,7 +177,7 @@ export async function createFolder(name: string) {
       tenantId: session.user.tenantId,
       ownerId: session.user.id,
       name,
-      type: "personal",
+      type,
     })
     .returning();
 

@@ -21,12 +21,12 @@ import {
   Folder,
   Upload,
   BookOpen,
-  Plus,
 } from "lucide-react";
 
 export function FolderSidebar() {
   const { folders, activeFolder, activeTab, setActiveFolder, setActiveTab } = useLibraryStore();
   const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderIsTeam, setNewFolderIsTeam] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const favoritesFolder = folders.filter((f) => f.type === "favorites");
@@ -36,9 +36,11 @@ export function FolderSidebar() {
   const handleCreateFolder = async () => {
     if (newFolderName.trim()) {
       try {
-        await createFolder(newFolderName.trim());
-        useLibraryStore.getState().addFolder(newFolderName.trim());
+        const folderType = newFolderIsTeam ? "team" : "personal";
+        await createFolder(newFolderName.trim(), folderType);
+        useLibraryStore.getState().addFolder(newFolderName.trim(), folderType);
         setNewFolderName("");
+        setNewFolderIsTeam(false);
         setDialogOpen(false);
       } catch {
         toast.error("Failed to create folder");
@@ -68,27 +70,59 @@ export function FolderSidebar() {
         PEG Library
       </button>
 
-      {/* My Materials - with hover Add Content button */}
-      <div className="group relative flex items-center">
-        <button
-          onClick={() => {
-            setActiveTab("org");
-            setActiveFolder(null);
-          }}
-          className={cn(
-            "flex flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-            isMyMaterials
-              ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          )}
-        >
-          <Upload className="h-4 w-4" />
-          My Materials
-        </button>
-        <div className="absolute right-1 hidden group-hover:flex">
-          <AddContentTrigger />
-        </div>
-      </div>
+      {/* My Materials */}
+      <button
+        onClick={() => {
+          setActiveTab("org");
+          setActiveFolder(null);
+        }}
+        className={cn(
+          "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          isMyMaterials
+            ? "bg-primary/10 text-primary"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <Upload className="h-4 w-4" />
+        My Materials
+      </button>
+
+      {/* New Folder - directly below My Materials */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogTrigger asChild>
+          <button className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            <FolderPlus className="h-4 w-4" />
+            New Folder
+          </button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Create New Folder</DialogTitle></DialogHeader>
+          <div className="flex flex-col gap-4">
+            <label htmlFor="new-folder-name" className="sr-only">Folder name</label>
+            <Input
+              id="new-folder-name"
+              placeholder="Folder name"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
+            />
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="new-folder-team"
+                checked={newFolderIsTeam}
+                onChange={(e) => setNewFolderIsTeam(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor="new-folder-team" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Users className="h-3.5 w-3.5" />
+                Make this a team folder
+              </label>
+            </div>
+            <Button onClick={handleCreateFolder}>Create</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* My Folders section */}
       {(favoritesFolder.length > 0 || personalFolders.length > 0 || teamFolders.length > 0) && (
@@ -121,39 +155,8 @@ export function FolderSidebar() {
         </>
       )}
 
-      <div className="my-1" />
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogTrigger asChild>
-          <button className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-            <FolderPlus className="h-4 w-4" />
-            New Folder
-          </button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Create New Folder</DialogTitle></DialogHeader>
-          <div className="flex flex-col gap-4">
-            <label htmlFor="new-folder-name" className="sr-only">Folder name</label>
-            <Input
-              id="new-folder-name"
-              placeholder="Folder name"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
-            />
-            <Button onClick={handleCreateFolder}>Create</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
-}
-
-/** Small + button shown on hover of My Materials */
-function AddContentTrigger() {
-  // We import the AddContentDialog and render its trigger inline
-  // But to keep it simple, we just link to the dialog via store/event
-  // Actually, let's render a small button that opens the add content dialog
-  return null; // Will be handled by the AddContentDialog in the sidebar
 }
 
 function isMyUploadsFolder(folder: LibraryFolder) {
