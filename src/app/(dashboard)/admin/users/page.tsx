@@ -48,7 +48,9 @@ import {
   CheckCircle2,
   XCircle,
   MailPlus,
+  Upload,
 } from "lucide-react";
+import { BulkInviteDialog } from "@/components/admin/bulk-invite-dialog";
 
 interface OrgUser {
   id: string;
@@ -67,6 +69,7 @@ interface OrgUser {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [showBulkInvite, setShowBulkInvite] = useState(false);
   const [editUser, setEditUser] = useState<OrgUser | null>(null);
   const [resetUser, setResetUser] = useState<OrgUser | null>(null);
   const [search, setSearch] = useState("");
@@ -204,6 +207,10 @@ export default function AdminUsersPage() {
               <Download className="h-3.5 w-3.5" />
               Export CSV
             </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowBulkInvite(true)}>
+              <Upload className="h-3.5 w-3.5" />
+              Bulk Invite
+            </Button>
             <Button size="sm" className="gap-1.5" onClick={() => setShowCreate(true)}>
               <Send className="h-3.5 w-3.5" />
               Invite User
@@ -280,6 +287,12 @@ export default function AdminUsersPage() {
           </Table>
         </div>
       </main>
+
+      <BulkInviteDialog
+        open={showBulkInvite}
+        onClose={() => setShowBulkInvite(false)}
+        onComplete={loadUsers}
+      />
 
       <InviteUserDialog
         open={showCreate}
