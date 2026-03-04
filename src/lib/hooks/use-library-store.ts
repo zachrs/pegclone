@@ -44,6 +44,7 @@ interface LibraryState {
   deleteFolder: (id: string) => void;
   addOrgContent: (item: Omit<OrgContentItem, "id" | "createdAt" | "isFavorite">) => void;
   deleteOrgContent: (id: string) => void;
+  toggleFolderType: (id: string, newType: "personal" | "team") => void;
 }
 
 const INITIAL_FOLDERS: LibraryFolder[] = [
@@ -213,5 +214,12 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   deleteOrgContent: (id) =>
     set((state) => ({
       orgContent: state.orgContent.filter((c) => c.id !== id),
+    })),
+
+  toggleFolderType: (id, newType) =>
+    set((state) => ({
+      folders: state.folders.map((f) =>
+        f.id === id ? { ...f, type: newType } : f
+      ),
     })),
 }));

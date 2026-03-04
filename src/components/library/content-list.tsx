@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Check, ExternalLink, Heart, Send, FileText, PackageOpen } from "lucide-react";
+import { Check, ExternalLink, Heart, FileText, PackageOpen } from "lucide-react";
 
 interface ContentListItem {
   id: string;
@@ -73,8 +73,9 @@ export function ContentList({ items, onSendSingle, emptyMessage }: ContentListPr
             return (
               <TableRow
                 key={item.id}
+                onClick={() => toggleItem(cartItem)}
                 className={cn(
-                  "transition-colors hover:bg-muted/40",
+                  "cursor-pointer transition-colors hover:bg-muted/40",
                   isSelected && "bg-primary/5 hover:bg-primary/10"
                 )}
               >
@@ -114,7 +115,7 @@ export function ContentList({ items, onSendSingle, emptyMessage }: ContentListPr
                     ? new Date(item.createdAt).toLocaleDateString()
                     : "—"}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-0.5">
                     <Button
                       variant="ghost"
@@ -133,15 +134,6 @@ export function ContentList({ items, onSendSingle, emptyMessage }: ContentListPr
                       aria-label={item.isFavorite ? "Remove from favorites" : "Add to favorites"}
                     >
                       <Heart className={cn("h-3.5 w-3.5", item.isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground")} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => onSendSingle?.(cartItem)}
-                      aria-label="Send this item"
-                    >
-                      <Send className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
                   </div>
                 </TableCell>

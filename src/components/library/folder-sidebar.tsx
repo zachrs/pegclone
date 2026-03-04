@@ -20,6 +20,7 @@ import {
   Heart,
   Users,
   Folder,
+  Upload,
 } from "lucide-react";
 
 export function FolderSidebar() {
@@ -108,12 +109,21 @@ export function FolderSidebar() {
   );
 }
 
+function getIcon(folder: LibraryFolder) {
+  if (folder.type === "favorites") return Heart;
+  if (folder.id === "my-uploads") return Upload;
+  if (folder.type === "team") return Users;
+  return Folder;
+}
+
 function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; isActive: boolean; onClick: () => void }) {
-  const Icon = folder.type === "favorites" ? Heart : folder.type === "team" ? Users : Folder;
+  const Icon = getIcon(folder);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
 
   const canEdit = folder.type === "personal" && folder.id !== "my-uploads";
+  const canToggleType = folder.type === "personal" || folder.type === "team";
+  const isMyUploads = folder.id === "my-uploads";
 
   const handleRename = async () => {
     if (editName.trim() && editName !== folder.name) {
@@ -135,6 +145,12 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
     } catch {
       toast.error("Failed to delete folder");
     }
+  };
+
+  const handleToggleType = () => {
+    const newType = folder.type === "personal" ? "team" : "personal";
+    useLibraryStore.getState().toggleFolderType(folder.id, newType);
+    toast.success(`Folder moved to ${newType === "team" ? "Team" : "Personal"}`);
   };
 
   if (editing) {
@@ -166,26 +182,44 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
         <Icon className="h-4 w-4 shrink-0" />
         <span className="truncate">{folder.name}</span>
       </button>
-      {canEdit && (
+      {(canEdit || (canToggleType && !isMyUploads)) && (
         <div className="absolute right-1 hidden gap-0.5 group-hover:flex">
-          <button
-            onClick={() => setEditing(true)}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Rename folder"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-            </svg>
-          </button>
-          <button
-            onClick={handleDelete}
-            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            aria-label="Delete folder"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-            </svg>
-          </button>
+          {canToggleType && !isMyUploads && (
+            <button
+              onClick={handleToggleType}
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={folder.type === "personal" ? "Make team folder" : "Make personal folder"}
+              title={folder.type === "personal" ? "Move to Team" : "Move to Personal"}
+            >
+              {folder.type === "personal" ? (
+                <Users className="h-3 w-3" />
+              ) : (
+                <Folder className="h-3 w-3" />
+              )}
+            </button>
+          )}
+          {canEdit && (
+            <>
+              <button
+                onClick={() => setEditing(true)}
+                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Rename folder"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                </svg>
+              </button>
+              <button
+                onClick={handleDelete}
+                className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Delete folder"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
