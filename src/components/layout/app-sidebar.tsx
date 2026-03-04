@@ -67,7 +67,7 @@ export function AppSidebar() {
       <Sidebar>
         <SidebarHeader className="p-4">
           <Link href="/library" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Patient Education Genius" className="h-8" />
+            <img src="/PEG Logo.png" alt="Patient Education Genius" className="h-8" />
           </Link>
         </SidebarHeader>
 
@@ -151,7 +151,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <Link href="/library" className="flex items-center gap-2">
-          <img src="/logo.svg" alt="Patient Education Genius" className="h-8" />
+          <img src="/PEG Logo.png" alt="Patient Education Genius" className="h-8" />
         </Link>
       </SidebarHeader>
 
