@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Library,
-  Send,
   Users,
   BarChart3,
   ArrowLeft,
@@ -37,7 +36,6 @@ import {
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", permission: "library.view" as const, icon: LayoutDashboard },
   { label: "Library", href: "/library", permission: "library.view" as const, icon: Library },
-  { label: "Send", href: "/send", permission: "send.create" as const, icon: Send },
   { label: "Campaigns", href: "/campaigns", permission: "send.create" as const, icon: Megaphone },
   { label: "Recipients", href: "/recipients", permission: "recipients.view" as const, icon: Users },
   { label: "Analytics", href: "/analytics", permission: "analytics.personal" as const, icon: BarChart3 },
