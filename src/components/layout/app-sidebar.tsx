@@ -18,45 +18,35 @@ import {
 import { can } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/db/types";
 import { UserMenu } from "./user-menu";
+import {
+  LayoutDashboard,
+  Library,
+  Send,
+  Users,
+  BarChart3,
+  User,
+  ArrowLeft,
+  Palette,
+  Bell,
+  Settings,
+  Building2,
+  UserCog,
+} from "lucide-react";
 
 const NAV_ITEMS = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    permission: "library.view" as const,
-  },
-  {
-    label: "Library",
-    href: "/library",
-    permission: "library.view" as const,
-  },
-  {
-    label: "Send",
-    href: "/send",
-    permission: "send.create" as const,
-  },
-  {
-    label: "Recipients",
-    href: "/recipients",
-    permission: "recipients.view" as const,
-  },
-  {
-    label: "Analytics",
-    href: "/analytics",
-    permission: "analytics.personal" as const,
-  },
-  {
-    label: "Profile",
-    href: "/profile",
-    permission: "library.view" as const,
-  },
+  { label: "Dashboard", href: "/dashboard", permission: "library.view" as const, icon: LayoutDashboard },
+  { label: "Library", href: "/library", permission: "library.view" as const, icon: Library },
+  { label: "Send", href: "/send", permission: "send.create" as const, icon: Send },
+  { label: "Recipients", href: "/recipients", permission: "recipients.view" as const, icon: Users },
+  { label: "Analytics", href: "/analytics", permission: "analytics.personal" as const, icon: BarChart3 },
+  { label: "Profile", href: "/profile", permission: "library.view" as const, icon: User },
 ];
 
 const ADMIN_ITEMS = [
-  { label: "Users", href: "/admin/users" },
-  { label: "Branding", href: "/admin/branding" },
-  { label: "Reminders", href: "/admin/reminders" },
-  { label: "Settings", href: "/admin/settings" },
+  { label: "Users", href: "/admin/users", icon: UserCog },
+  { label: "Branding", href: "/admin/branding", icon: Palette },
+  { label: "Reminders", href: "/admin/reminders", icon: Bell },
+  { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -75,35 +65,20 @@ export function AppSidebar() {
     return (
       <Sidebar>
         <SidebarHeader className="p-4">
-          <Link href="/library" className="text-lg font-semibold">
+          <Link href="/library" className="text-lg font-semibold tracking-tight">
             PEG
           </Link>
         </SidebarHeader>
 
         <SidebarContent>
           <nav aria-label="Admin navigation">
-            {/* Back link */}
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <Link
-                        href="/library"
-                        className="gap-2 text-muted-foreground"
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M10 12L6 8l4-4" />
-                        </svg>
+                      <Link href="/library" className="gap-2.5 text-muted-foreground">
+                        <ArrowLeft className="h-4 w-4" />
                         Back to App
                       </Link>
                     </SidebarMenuButton>
@@ -121,10 +96,8 @@ export function AppSidebar() {
                     return (
                       <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton asChild isActive={isActive}>
-                          <Link
-                            href={item.href}
-                            aria-current={isActive ? "page" : undefined}
-                          >
+                          <Link href={item.href} aria-current={isActive ? "page" : undefined} className="gap-2.5">
+                            <item.icon className="h-4 w-4" />
                             {item.label}
                           </Link>
                         </SidebarMenuButton>
@@ -142,7 +115,10 @@ export function AppSidebar() {
                   <SidebarMenu>
                     <SidebarMenuItem>
                       <SidebarMenuButton asChild>
-                        <Link href="/super-admin/orgs">Organizations</Link>
+                        <Link href="/super-admin/orgs" className="gap-2.5">
+                          <Building2 className="h-4 w-4" />
+                          Organizations
+                        </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   </SidebarMenu>
@@ -163,7 +139,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <Link href="/library" className="text-lg font-semibold">
+        <Link href="/library" className="text-lg font-semibold tracking-tight">
           PEG
         </Link>
       </SidebarHeader>
@@ -184,10 +160,8 @@ export function AppSidebar() {
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton asChild isActive={isActive}>
-                        <Link
-                          href={item.href}
-                          aria-current={isActive ? "page" : undefined}
-                        >
+                        <Link href={item.href} aria-current={isActive ? "page" : undefined} className="gap-2.5">
+                          <item.icon className="h-4 w-4" />
                           {item.label}
                         </Link>
                       </SidebarMenuButton>
@@ -204,16 +178,9 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isSuperAdminRoute}
-                    >
-                      <Link
-                        href="/super-admin/orgs"
-                        aria-current={
-                          isSuperAdminRoute ? "page" : undefined
-                        }
-                      >
+                    <SidebarMenuButton asChild isActive={isSuperAdminRoute}>
+                      <Link href="/super-admin/orgs" aria-current={isSuperAdminRoute ? "page" : undefined} className="gap-2.5">
+                        <Building2 className="h-4 w-4" />
                         Organizations
                       </Link>
                     </SidebarMenuButton>

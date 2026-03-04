@@ -1,6 +1,7 @@
 "use client";
 
 import { ContentCard } from "./content-card";
+import { PackageOpen } from "lucide-react";
 import type { CartItem } from "@/lib/hooks/use-send-cart";
 
 interface ContentGridItem {
@@ -21,7 +22,8 @@ interface ContentGridProps {
 export function ContentGrid({ items, onSendSingle, emptyMessage }: ContentGridProps) {
   if (items.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-lg border border-dashed">
+      <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30">
+        <PackageOpen className="h-8 w-8 text-muted-foreground/50" />
         <p className="text-sm text-muted-foreground">
           {emptyMessage ?? "No content found"}
         </p>

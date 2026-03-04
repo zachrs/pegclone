@@ -10,6 +10,22 @@ import { sendMessage, bulkSend } from "@/lib/actions/send";
 import { searchRecipients } from "@/lib/actions/recipients";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import {
+  Check,
+  X,
+  GripVertical,
+  Send,
+  Mail,
+  MessageSquare,
+  MailPlus,
+  QrCode,
+  FileUp,
+  Library,
+  CircleCheck,
+  Clock,
+  FileText,
+  Link as LinkIcon,
+} from "lucide-react";
 
 type Step = 1 | 2 | 3 | 4;
 type SendMode = "single" | "bulk";
@@ -55,10 +71,7 @@ export function SendWizard() {
   const [sent, setSent] = useState(false);
   const [sentInfo, setSentInfo] = useState({ count: 0, channel: "", qr: false });
 
-  // Sync items when cart changes
-  useEffect(() => {
-    setOrderedItems(items);
-  }, [items]);
+  useEffect(() => { setOrderedItems(items); }, [items]);
 
   // Roster search
   useEffect(() => {
@@ -79,7 +92,6 @@ export function SendWizard() {
   const isEmail = contact.includes("@");
   const isPhone = /^\+?\d[\d\s()-]{6,}$/.test(contact.trim());
   const isValidContact = contact.trim().length > 0 && (isEmail || isPhone);
-  const autoChannel = isEmail ? "email" : "sms";
 
   const contentBlocks = orderedItems.map((item, i) => ({
     type: "content_item" as const,
@@ -158,7 +170,6 @@ export function SendWizard() {
         });
         setSentInfo({ count: 1, channel: "QR Code", qr: true });
       } else {
-        // Bulk
         const dataRows = bulkPreview.slice(1);
         const contacts = dataRows.map((row) => row[2]?.trim()).filter((c): c is string => Boolean(c));
         const results = await bulkSend({ contacts, contentBlocks });
@@ -193,15 +204,13 @@ export function SendWizard() {
   // ── Success screen ──────────────────────────────────────────────────
   if (sent) {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-12 text-center">
+      <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-16 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-            <path d="M8 16l5.5 5.5L24 10" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <CircleCheck className="h-8 w-8 text-green-600" />
         </div>
         <div>
-          <h2 className="text-2xl font-semibold">Your message has been sent</h2>
-          <p className="mt-1 text-muted-foreground">
+          <h2 className="text-2xl font-semibold">Message sent</h2>
+          <p className="mt-2 text-muted-foreground">
             {sentInfo.qr
               ? "QR code generated. Print or display for patients to scan."
               : sentInfo.count === 1
@@ -210,7 +219,7 @@ export function SendWizard() {
           </p>
         </div>
         {sentInfo.qr && (
-          <div className="rounded-lg border-2 border-dashed border-gray-300 p-6">
+          <div className="rounded-xl border-2 border-dashed p-6">
             <div className="grid h-40 w-40 grid-cols-5 grid-rows-5 gap-1">
               {Array.from({ length: 25 }).map((_, i) => (
                 <div key={i} className={`rounded-sm ${[0, 1, 2, 4, 5, 6, 10, 12, 14, 18, 19, 20, 22, 23, 24].includes(i) ? "bg-gray-900" : "bg-white"}`} />
@@ -231,12 +240,9 @@ export function SendWizard() {
   // ── Empty cart ──────────────────────────────────────────────────────
   if (items.length === 0 && orderedItems.length === 0) {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-12 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 2L11 13" />
-            <path d="M22 2l-7 20-4-9-9-4 20-7z" />
-          </svg>
+      <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-16 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+          <Send className="h-6 w-6 text-muted-foreground" />
         </div>
         <div>
           <h2 className="text-lg font-semibold">No content selected</h2>
@@ -244,7 +250,10 @@ export function SendWizard() {
             Go to the Library to browse and select items, then come back here to send them.
           </p>
         </div>
-        <Button variant="outline" onClick={() => { window.location.href = "/library"; }}>Go to Library</Button>
+        <Button variant="outline" className="gap-2" onClick={() => { window.location.href = "/library"; }}>
+          <Library className="h-4 w-4" />
+          Go to Library
+        </Button>
       </div>
     );
   }
@@ -264,27 +273,29 @@ export function SendWizard() {
   return (
     <div className="mx-auto max-w-2xl">
       {/* Stepper header */}
-      <div className="mb-8 flex items-center gap-2">
+      <div className="mb-8 flex items-center justify-between">
         {STEP_LABELS.map((label, i) => {
           const stepNum = (i + 1) as Step;
           const isActive = step === stepNum;
           const isComplete = step > stepNum;
           return (
             <div key={i} className="flex items-center gap-2">
-              {i > 0 && <div className={`h-px w-6 ${isComplete ? "bg-teal-500" : "bg-gray-200"}`} />}
+              {i > 0 && (
+                <div className={`hidden h-px w-8 sm:block ${isComplete ? "bg-primary" : "bg-border"}`} />
+              )}
               <button
-                className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
                   isActive
-                    ? "bg-teal-700 text-white"
+                    ? "bg-primary text-primary-foreground shadow-sm"
                     : isComplete
-                      ? "bg-teal-100 text-teal-700 hover:bg-teal-200"
-                      : "bg-gray-100 text-muted-foreground"
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "bg-muted text-muted-foreground"
                 }`}
                 onClick={() => { if (isComplete) setStep(stepNum); }}
                 disabled={!isComplete && !isActive}
               >
                 <span className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold">
-                  {isComplete ? "✓" : stepNum}
+                  {isComplete ? <Check className="h-3 w-3" /> : stepNum}
                 </span>
                 <span className="hidden sm:inline">{label}</span>
               </button>
@@ -307,28 +318,26 @@ export function SendWizard() {
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDragEnd={handleDragEnd}
-                className={`flex items-center gap-3 rounded-lg border bg-white px-4 py-3 transition-colors ${dragIdx === idx ? "border-teal-400 bg-teal-50" : "border-gray-200 hover:border-gray-300"} cursor-grab active:cursor-grabbing`}
+                className={`flex items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm transition-all ${
+                  dragIdx === idx
+                    ? "border-primary bg-primary/5 shadow-md"
+                    : "hover:shadow-md"
+                } cursor-grab active:cursor-grabbing`}
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold text-muted-foreground">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                    <circle cx="4" cy="3" r="1.2" /><circle cx="10" cy="3" r="1.2" />
-                    <circle cx="4" cy="7" r="1.2" /><circle cx="10" cy="7" r="1.2" />
-                    <circle cx="4" cy="11" r="1.2" /><circle cx="10" cy="11" r="1.2" />
-                  </svg>
-                </span>
+                <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
                 <span className="flex-1 text-sm font-medium">{item.title}</span>
-                <Badge variant="outline" className="text-xs">{item.type === "pdf" ? "PDF" : "Link"}</Badge>
+                <Badge variant="outline" className="text-xs">
+                  {item.type === "pdf" ? <><FileText className="mr-1 h-3 w-3" />PDF</> : <><LinkIcon className="mr-1 h-3 w-3" />Link</>}
+                </Badge>
                 <button
-                  className="text-muted-foreground hover:text-red-600 transition-colors"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => {
                     removeItem(item.id);
                     setOrderedItems((prev) => prev.filter((i) => i.id !== item.id));
                   }}
                   aria-label="Remove item"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" />
-                  </svg>
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             ))}
@@ -342,7 +351,7 @@ export function SendWizard() {
               onChange={(e) => setPersonalNote(e.target.value)}
               placeholder="Add a personal message that will appear at the top of the patient viewer..."
               rows={3}
-              className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+              className="mt-1 w-full rounded-xl border bg-card px-3 py-2 text-sm shadow-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
             />
           </div>
         </div>
@@ -354,9 +363,8 @@ export function SendWizard() {
           <h2 className="mb-1 text-lg font-semibold">Add Recipients</h2>
           <p className="mb-4 text-sm text-muted-foreground">Enter a recipient manually, search the roster, or upload a file.</p>
 
-          {/* Mode tabs */}
           <div className="mb-6">
-            <div className="flex gap-1 rounded-lg border bg-gray-50 p-1" role="tablist">
+            <div className="flex gap-1 rounded-xl border bg-muted/50 p-1" role="tablist">
               {([
                 { key: "single" as const, label: "Single Recipient" },
                 { key: "bulk" as const, label: "Bulk Upload" },
@@ -365,7 +373,11 @@ export function SendWizard() {
                   key={tab.key}
                   role="tab"
                   aria-selected={mode === tab.key}
-                  className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${mode === tab.key ? "bg-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                    mode === tab.key
+                      ? "bg-card shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                   onClick={() => setMode(tab.key)}
                 >
                   {tab.label}
@@ -394,18 +406,17 @@ export function SendWizard() {
                   placeholder="example@email.com or 888-555-5555"
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
-                  className="mt-1 h-12 border-2 border-gray-200 text-base focus:border-teal-400"
+                  className="mt-1"
                 />
                 {contact.trim() && isValidContact && (
                   <p className="mt-1 text-xs text-muted-foreground">Will send via {isEmail ? "email" : "SMS"}</p>
                 )}
                 {contact.trim() && !isValidContact && (
-                  <p className="mt-1 text-xs text-red-500">Enter a valid email address or phone number</p>
+                  <p className="mt-1 text-xs text-destructive">Enter a valid email address or phone number</p>
                 )}
               </div>
 
-              {/* Roster search */}
-              <div className="rounded-lg border bg-gray-50 p-4">
+              <div className="rounded-xl border bg-muted/30 p-4">
                 <Label htmlFor="roster-search" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Or search existing recipients</Label>
                 <Input
                   id="roster-search"
@@ -420,7 +431,7 @@ export function SendWizard() {
                     {rosterResults.map((r) => (
                       <button
                         key={r.id}
-                        className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-white transition-colors"
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-card"
                         onClick={() => {
                           setContact(r.contact);
                           setFirstName(r.firstName ?? "");
@@ -462,7 +473,7 @@ export function SendWizard() {
 
               {!bulkFile ? (
                 <div
-                  className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 py-10 transition-colors hover:border-teal-300"
+                  className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed bg-muted/30 py-10 transition-colors hover:border-primary/40 hover:bg-muted/50"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
@@ -472,13 +483,8 @@ export function SendWizard() {
                     }
                   }}
                 >
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="12" y1="18" x2="12" y2="12" />
-                    <line x1="9" y1="15" x2="15" y2="15" />
-                  </svg>
-                  <p className="text-sm text-muted-foreground">Drag a CSV or Excel file here or click to upload</p>
+                  <FileUp className="h-8 w-8 text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">Drag a CSV or Excel file here</p>
                   <p className="text-xs text-muted-foreground">Required columns: first_name, last_name, contact</p>
                   <input
                     type="file"
@@ -498,10 +504,10 @@ export function SendWizard() {
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => { setBulkFile(null); setBulkPreview([]); }}>Remove</Button>
                   </div>
-                  <div className="max-h-48 overflow-auto rounded-md border">
+                  <div className="max-h-48 overflow-auto rounded-xl border shadow-sm">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b bg-gray-50">
+                        <tr className="border-b bg-muted/50">
                           {bulkPreview[0]?.map((header, i) => (
                             <th key={i} className="px-3 py-2 text-left font-medium text-muted-foreground">{header}</th>
                           ))}
@@ -509,7 +515,7 @@ export function SendWizard() {
                       </thead>
                       <tbody>
                         {bulkPreview.slice(1, 6).map((row, ri) => (
-                          <tr key={ri} className="border-b">
+                          <tr key={ri} className="border-b last:border-0">
                             {row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{cell}</td>)}
                           </tr>
                         ))}
@@ -532,26 +538,25 @@ export function SendWizard() {
           <h2 className="mb-1 text-lg font-semibold">Configure Delivery</h2>
           <p className="mb-6 text-sm text-muted-foreground">Choose how and when to deliver.</p>
 
-          {/* Channel selection */}
           <div className="mb-6">
-            <Label className="mb-2 block text-sm font-medium">Delivery Channel</Label>
+            <Label className="mb-3 block text-sm font-medium">Delivery Channel</Label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {([
-                { key: "email" as const, label: "Email", icon: "✉" },
-                { key: "sms" as const, label: "SMS", icon: "💬" },
-                { key: "sms_and_email" as const, label: "Both", icon: "📨" },
-                ...(mode === "single" ? [{ key: "qr_code" as const, label: "QR Code", icon: "📱" }] : []),
+                { key: "email" as const, label: "Email", Icon: Mail },
+                { key: "sms" as const, label: "SMS", Icon: MessageSquare },
+                { key: "sms_and_email" as const, label: "Both", Icon: MailPlus },
+                ...(mode === "single" ? [{ key: "qr_code" as const, label: "QR Code", Icon: QrCode }] : []),
               ]).map((opt) => (
                 <button
                   key={opt.key}
-                  className={`flex flex-col items-center gap-1 rounded-lg border-2 p-3 text-sm font-medium transition-colors ${
+                  className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-sm font-medium transition-all ${
                     channel === opt.key
-                      ? "border-teal-500 bg-teal-50 text-teal-700"
-                      : "border-gray-200 hover:border-gray-300"
+                      ? "border-primary bg-primary/5 text-primary shadow-sm"
+                      : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
                   }`}
                   onClick={() => setChannel(opt.key)}
                 >
-                  <span className="text-lg">{opt.icon}</span>
+                  <opt.Icon className="h-5 w-5" />
                   {opt.label}
                 </button>
               ))}
@@ -563,24 +568,25 @@ export function SendWizard() {
             )}
           </div>
 
-          {/* Schedule */}
           <div className="mb-6">
-            <Label className="mb-2 block text-sm font-medium">Schedule</Label>
+            <Label className="mb-3 block text-sm font-medium">Schedule</Label>
             <div className="flex gap-2">
               <button
-                className={`flex-1 rounded-lg border-2 p-3 text-sm font-medium transition-colors ${
-                  scheduleMode === "now" ? "border-teal-500 bg-teal-50 text-teal-700" : "border-gray-200 hover:border-gray-300"
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 text-sm font-medium transition-all ${
+                  scheduleMode === "now" ? "border-primary bg-primary/5 text-primary shadow-sm" : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
                 }`}
                 onClick={() => setScheduleMode("now")}
               >
+                <Send className="h-4 w-4" />
                 Send Now
               </button>
               <button
-                className={`flex-1 rounded-lg border-2 p-3 text-sm font-medium transition-colors ${
-                  scheduleMode === "later" ? "border-teal-500 bg-teal-50 text-teal-700" : "border-gray-200 hover:border-gray-300"
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 text-sm font-medium transition-all ${
+                  scheduleMode === "later" ? "border-primary bg-primary/5 text-primary shadow-sm" : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
                 }`}
                 onClick={() => setScheduleMode("later")}
               >
+                <Clock className="h-4 w-4" />
                 Schedule
               </button>
             </div>
@@ -598,9 +604,8 @@ export function SendWizard() {
             )}
           </div>
 
-          {/* Reminders */}
           {channel !== "qr_code" && (
-            <div className="rounded-lg border bg-gray-50 p-4">
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">Automated Reminders</p>
@@ -609,10 +614,10 @@ export function SendWizard() {
                 <button
                   role="switch"
                   aria-checked={remindersEnabled}
-                  className={`relative h-6 w-11 rounded-full transition-colors ${remindersEnabled ? "bg-teal-600" : "bg-gray-300"}`}
+                  className={`relative h-6 w-11 rounded-full transition-colors ${remindersEnabled ? "bg-primary" : "bg-muted"}`}
                   onClick={() => setRemindersEnabled(!remindersEnabled)}
                 >
-                  <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform shadow ${remindersEnabled ? "translate-x-5" : ""}`} />
+                  <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${remindersEnabled ? "translate-x-5" : ""}`} />
                 </button>
               </div>
               {remindersEnabled && (
@@ -623,7 +628,7 @@ export function SendWizard() {
                       id="rem-max"
                       value={reminderMax}
                       onChange={(e) => setReminderMax(Number(e.target.value))}
-                      className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                      className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
                     >
                       {[1, 2, 3, 4, 5].map((n) => (
                         <option key={n} value={n}>{n}</option>
@@ -647,50 +652,48 @@ export function SendWizard() {
           <h2 className="mb-1 text-lg font-semibold">Preview & Send</h2>
           <p className="mb-6 text-sm text-muted-foreground">Review your message before sending.</p>
 
-          {/* Branded message preview */}
-          <div className="mb-6 overflow-hidden rounded-xl border shadow-sm">
-            <div className="bg-teal-700 px-5 py-4 text-white">
+          <div className="mb-6 overflow-hidden rounded-2xl border shadow-md">
+            <div className="bg-primary px-5 py-4 text-primary-foreground">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-lg font-bold">O</div>
                 <div>
                   <p className="font-semibold">Your Organization</p>
-                  <p className="text-sm text-white/80">(555) 123-4567</p>
+                  <p className="text-sm opacity-80">(555) 123-4567</p>
                 </div>
               </div>
             </div>
-            <div className="bg-white px-5 py-4">
+            <div className="bg-card px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-700 text-sm font-semibold text-white">JD</div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">JD</div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">Dr. Jane Doe</p>
-                  <p className="text-xs text-gray-500">MD</p>
+                  <p className="text-sm font-semibold">Dr. Jane Doe</p>
+                  <p className="text-xs text-muted-foreground">MD</p>
                 </div>
               </div>
               {personalNote && (
-                <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-700 italic">&quot;{personalNote}&quot;</p>
+                <p className="mt-3 rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground italic">&quot;{personalNote}&quot;</p>
               )}
             </div>
-            <div className="space-y-1 bg-gray-50 px-5 py-3">
+            <div className="space-y-1.5 bg-muted/30 px-5 py-3">
               {orderedItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50">
+                <div key={item.id} className="flex items-center gap-3 rounded-xl bg-card p-3 shadow-sm">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                     {item.type === "pdf" ? (
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M6 2h6l4 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="#0d9488" strokeWidth="1.5" /><path d="M12 2v4h4" stroke="#0d9488" strokeWidth="1.5" /></svg>
+                      <FileText className="h-4 w-4 text-primary" />
                     ) : (
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M8 4H6a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-2" stroke="#0d9488" strokeWidth="1.5" strokeLinecap="round" /><path d="M11 3h6v6M17 3L9 11" stroke="#0d9488" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      <LinkIcon className="h-4 w-4 text-primary" />
                     )}
                   </div>
-                  <span className="text-sm font-medium text-gray-900">{item.title}</span>
+                  <span className="text-sm font-medium">{item.title}</span>
                   <Badge variant="outline" className="ml-auto text-xs">{item.type === "pdf" ? "PDF" : "Link"}</Badge>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Send summary */}
-          <div className="mb-6 rounded-lg border bg-white p-4">
-            <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Send Summary</h3>
-            <dl className="space-y-2 text-sm">
+          <div className="mb-6 rounded-xl border bg-card p-4 shadow-sm">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Send Summary</h3>
+            <dl className="space-y-2.5 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Content items</dt>
                 <dd className="font-medium">{orderedItems.length}</dd>
@@ -728,7 +731,7 @@ export function SendWizard() {
               {personalNote && (
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Personal note</dt>
-                  <dd className="font-medium text-right max-w-[200px] truncate">{personalNote}</dd>
+                  <dd className="max-w-[200px] truncate text-right font-medium">{personalNote}</dd>
                 </div>
               )}
             </dl>
@@ -745,7 +748,8 @@ export function SendWizard() {
             </Button>
           )}
           {step === 1 && (
-            <Button variant="outline" onClick={() => { window.location.href = "/library"; }}>
+            <Button variant="outline" className="gap-2" onClick={() => { window.location.href = "/library"; }}>
+              <Library className="h-4 w-4" />
               Add More Content
             </Button>
           )}
@@ -753,7 +757,6 @@ export function SendWizard() {
         <div>
           {step < 4 ? (
             <Button
-              className="bg-teal-700 hover:bg-teal-800"
               onClick={() => setStep((step + 1) as Step)}
               disabled={!canProceed()}
             >
@@ -761,7 +764,6 @@ export function SendWizard() {
             </Button>
           ) : (
             <Button
-              className="bg-teal-700 hover:bg-teal-800"
               onClick={handleSend}
               disabled={sending}
             >

@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Settings, LogOut } from "lucide-react";
 
 export function UserMenu() {
   const { data: session } = useSession();
@@ -30,13 +31,13 @@ export function UserMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-md p-2 text-left text-sm hover:bg-accent">
+      <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg p-2 text-left text-sm transition-colors hover:bg-accent">
         <Avatar className="h-8 w-8">
           <AvatarImage src={session.user.image ?? undefined} />
           <AvatarFallback className="text-xs">{initials}</AvatarFallback>
         </Avatar>
         <div className="flex-1 truncate">
-          <p className="truncate font-medium">{name}</p>
+          <p className="truncate text-sm font-medium">{name}</p>
           <p className="truncate text-xs text-muted-foreground">{email}</p>
         </div>
       </DropdownMenuTrigger>
@@ -51,31 +52,18 @@ export function UserMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {showAdmin && (
-          <DropdownMenuItem asChild className="cursor-pointer">
+          <DropdownMenuItem asChild className="cursor-pointer gap-2">
             <Link href="/admin/users">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-2"
-              >
-                <path d="M12.5 13.5v-1a2 2 0 00-2-2h-5a2 2 0 00-2 2v1" />
-                <circle cx="8" cy="5" r="2.5" />
-                <path d="M13.5 7.5l1 1 2-2" />
-              </svg>
+              <Settings className="h-4 w-4" />
               Admin
             </Link>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="cursor-pointer"
+          className="cursor-pointer gap-2"
         >
+          <LogOut className="h-4 w-4" />
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

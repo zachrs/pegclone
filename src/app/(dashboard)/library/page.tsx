@@ -139,7 +139,7 @@ export default function LibraryPage() {
     <>
       <Header title="Content Library" />
       <main className="flex flex-1 overflow-hidden">
-        <aside className="hidden border-r p-4 md:block">
+        <aside className="hidden border-r bg-card p-4 md:block">
           <FolderSidebar />
         </aside>
 
@@ -214,7 +214,11 @@ export default function LibraryPage() {
           )}
 
           {filteredOrgContent.length === 0 && filteredSystemContent.length === 0 && (
-            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed">
+            <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/50">
+                <path d="M20 17.58A5 5 0 0018 8h-1.26A8 8 0 104 16.25" />
+                <path d="M8 16h.01M8 12h.01M12 12h.01M12 16h.01M16 16h.01" />
+              </svg>
               <p className="text-sm text-muted-foreground">
                 {searchQuery ? `No results for "${searchQuery}"` : "No content in this folder"}
               </p>

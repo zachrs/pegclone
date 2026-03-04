@@ -1,9 +1,18 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useSendCart, type CartItem } from "@/lib/hooks/use-send-cart";
 import { useLibraryStore } from "@/lib/hooks/use-library-store";
 import { cn } from "@/lib/utils";
+import {
+  Check,
+  ExternalLink,
+  Heart,
+  Send,
+  FileText,
+  Link as LinkIcon,
+} from "lucide-react";
 
 interface ContentCardProps {
   id: string;
@@ -32,137 +41,78 @@ export function ContentCard({
   return (
     <div
       className={cn(
-        "group relative flex flex-col rounded-lg border-2 transition-colors",
-        isSelected
-          ? "border-orange-400 bg-orange-100"
-          : "border-orange-200 bg-orange-50 hover:border-orange-300"
+        "group relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:shadow-md",
+        isSelected && "ring-2 ring-primary ring-offset-1"
       )}
     >
-      {/* Source label */}
-      <div className="rounded-t-md bg-orange-200/60 px-3 py-1.5">
-        <span className="text-xs font-medium text-muted-foreground">
-          {source}
-        </span>
+      {/* Type indicator bar */}
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-2",
+        type === "pdf" ? "bg-red-50" : "bg-blue-50"
+      )}>
+        {type === "pdf" ? (
+          <FileText className="h-3.5 w-3.5 text-red-500" />
+        ) : (
+          <LinkIcon className="h-3.5 w-3.5 text-blue-500" />
+        )}
+        <span className="text-xs font-medium text-muted-foreground">{source}</span>
+        <Badge
+          variant="outline"
+          className={cn(
+            "ml-auto text-[10px] px-1.5 py-0",
+            type === "pdf"
+              ? "border-red-200 text-red-600"
+              : "border-blue-200 text-blue-600"
+          )}
+        >
+          {type === "pdf" ? "PDF" : "Link"}
+        </Badge>
       </div>
 
-      {/* Title area */}
+      {/* Title */}
       <div className="flex flex-1 flex-col justify-between p-3">
-        <h3 className="text-sm font-semibold leading-snug">{title}</h3>
-        {type === "pdf" && (
-          <span className="mt-2 self-end text-xs text-muted-foreground">
-            PDF
-          </span>
-        )}
+        <h3 className="text-sm font-semibold leading-snug text-card-foreground line-clamp-2">{title}</h3>
       </div>
 
       {/* Action bar */}
-      <div className="flex items-center justify-around border-t border-orange-200 px-1 py-1.5">
-        <ActionButton
-          label="Select"
-          active={isSelected}
+      <div className="flex items-center border-t px-1 py-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn("h-8 flex-1 gap-1.5 text-xs", isSelected && "text-primary")}
           onClick={() => toggleItem(cartItem)}
         >
-          <SelectIcon active={isSelected} />
-        </ActionButton>
-        <ActionButton
-          label="View"
-          onClick={() => {
-            if (url) window.open(url, "_blank");
-          }}
+          <Check className={cn("h-3.5 w-3.5", isSelected ? "opacity-100" : "opacity-40")} />
+          {isSelected ? "Selected" : "Select"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => { if (url) window.open(url, "_blank"); }}
+          aria-label="View content"
         >
-          <ViewIcon />
-        </ActionButton>
-        <ActionButton
-          label="Favorite"
-          active={isFavorite}
+          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
           onClick={() => toggleFavorite(id)}
+          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
-          <HeartIcon active={isFavorite} />
-        </ActionButton>
-        <ActionButton
-          label="Send"
+          <Heart className={cn("h-3.5 w-3.5", isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground")} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
           onClick={() => onSendSingle?.(cartItem)}
+          aria-label="Send this item"
         >
-          <SendIcon />
-        </ActionButton>
+          <Send className="h-3.5 w-3.5 text-muted-foreground" />
+        </Button>
       </div>
     </div>
-  );
-}
-
-function ActionButton({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="flex h-auto flex-col gap-0.5 px-2 py-1 text-xs hover:bg-orange-100"
-      onClick={onClick}
-    >
-      {children}
-      <span className={cn("text-[10px]", active && "font-semibold")}>
-        {label}
-      </span>
-    </Button>
-  );
-}
-
-function SelectIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <rect
-        x="2"
-        y="2"
-        width="14"
-        height="14"
-        rx="2"
-        stroke={active ? "#16a34a" : "#6b7280"}
-        strokeWidth="1.5"
-        fill={active ? "#16a34a" : "none"}
-      />
-      {active && (
-        <path d="M5 9l2.5 2.5L13 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      )}
-    </svg>
-  );
-}
-
-function ViewIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <circle cx="9" cy="9" r="6" stroke="#d97706" strokeWidth="1.5" />
-      <circle cx="9" cy="9" r="2.5" fill="#d97706" />
-    </svg>
-  );
-}
-
-function HeartIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path
-        d="M9 15s-6-4.35-6-7.5A3.5 3.5 0 019 4.96 3.5 3.5 0 0115 7.5C15 10.65 9 15 9 15z"
-        fill={active ? "#dc2626" : "none"}
-        stroke="#dc2626"
-        strokeWidth="1.5"
-      />
-    </svg>
-  );
-}
-
-function SendIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <rect x="2" y="4" width="14" height="10" rx="1.5" stroke="#16a34a" strokeWidth="1.5" />
-      <path d="M2 5.5l7 4.5 7-4.5" stroke="#16a34a" strokeWidth="1.5" />
-    </svg>
   );
 }
