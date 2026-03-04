@@ -53,10 +53,20 @@ export async function POST(request: NextRequest) {
   const tenantId = session.user.tenantId;
   const path = `${tenantId}/${folder}/${Date.now()}-${filename}`;
 
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    console.error("[upload] BLOB_READ_WRITE_TOKEN not found in env");
+    return NextResponse.json(
+      { error: "Blob storage not configured. BLOB_READ_WRITE_TOKEN is missing." },
+      { status: 500 }
+    );
+  }
+
   try {
     const blob = await put(path, body, {
       access: "public",
       addRandomSuffix: false,
+      token,
     });
 
     return NextResponse.json({
@@ -64,9 +74,10 @@ export async function POST(request: NextRequest) {
       pathname: blob.pathname,
     });
   } catch (err) {
-    console.error("[upload] Failed:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[upload] Failed:", message);
     return NextResponse.json(
-      { error: "Upload failed. Ensure BLOB_READ_WRITE_TOKEN is set." },
+      { error: `Upload failed: ${message}` },
       { status: 500 }
     );
   }
