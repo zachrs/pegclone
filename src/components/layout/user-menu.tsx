@@ -57,7 +57,15 @@ export function UserMenu() {
             Profile
           </Link>
         </DropdownMenuItem>
-        {showAdmin && (
+        {role === "super_admin" && (
+          <DropdownMenuItem asChild className="cursor-pointer gap-2">
+            <Link href="/super-admin/orgs">
+              <Settings className="h-4 w-4" />
+              Platform
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {showAdmin && role !== "super_admin" && (
           <DropdownMenuItem asChild className="cursor-pointer gap-2">
             <Link href="/admin/users">
               <Settings className="h-4 w-4" />

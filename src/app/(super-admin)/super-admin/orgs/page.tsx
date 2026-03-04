@@ -138,25 +138,29 @@ export default function SuperAdminOrgsPage() {
                     {new Date(org.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    {org.smsThrottled && (
+                    <div className="flex items-center justify-end gap-2">
+                      {org.smsThrottled && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-blue-600 hover:text-blue-700"
+                          onClick={async () => {
+                            await overrideSmsThrottle(org.id);
+                            toast.success(`SMS throttle unlocked for ${org.name}`);
+                            loadOrgs();
+                          }}
+                        >
+                          Unlock SMS
+                        </Button>
+                      )}
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="text-blue-600 hover:text-blue-700"
-                        onClick={async () => {
-                          await overrideSmsThrottle(org.id);
-                          toast.success(`SMS throttle unlocked for ${org.name}`);
-                          loadOrgs();
-                        }}
+                        asChild
                       >
-                        Unlock SMS
+                        <a href={`/super-admin/orgs/${org.id}`}>Manage</a>
                       </Button>
-                    )}
-                    {org.smsThrottleOverriddenAt && !org.smsThrottled && (
-                      <span className="text-xs text-muted-foreground">
-                        Unlocked {new Date(org.smsThrottleOverriddenAt).toLocaleDateString()}
-                      </span>
-                    )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

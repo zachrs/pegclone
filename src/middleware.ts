@@ -23,7 +23,9 @@ export default auth((req) => {
     !session.user?.mfaPending &&
     nextUrl.pathname.startsWith("/mfa-verify")
   ) {
-    return NextResponse.redirect(new URL("/library", nextUrl.origin));
+    // Super admins land on platform page, others on library
+    const home = session.user?.role === "super_admin" ? "/super-admin/orgs" : "/library";
+    return NextResponse.redirect(new URL(home, nextUrl.origin));
   }
 
   // Fix #9: Page-level permission enforcement for admin routes

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,10 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Invalid email or password");
       } else {
-        router.push("/library");
+        // Redirect super admins to platform page, others to library
+        const session = await getSession();
+        const home = session?.user?.role === "super_admin" ? "/super-admin/orgs" : "/library";
+        router.push(home);
       }
     } catch {
       setError("Something went wrong. Please try again.");
