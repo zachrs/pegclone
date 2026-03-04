@@ -20,7 +20,6 @@ interface ContentCardProps {
   type: "pdf" | "link";
   url?: string;
   isFavorite?: boolean;
-  onSendSingle?: (item: CartItem) => void;
 }
 
 export function ContentCard({

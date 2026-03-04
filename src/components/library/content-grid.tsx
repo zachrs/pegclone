@@ -2,8 +2,6 @@
 
 import { ContentCard } from "./content-card";
 import { PackageOpen } from "lucide-react";
-import type { CartItem } from "@/lib/hooks/use-send-cart";
-
 interface ContentGridItem {
   id: string;
   title: string;
@@ -15,11 +13,10 @@ interface ContentGridItem {
 
 interface ContentGridProps {
   items: ContentGridItem[];
-  onSendSingle?: (item: CartItem) => void;
   emptyMessage?: string;
 }
 
-export function ContentGrid({ items, onSendSingle, emptyMessage }: ContentGridProps) {
+export function ContentGrid({ items, emptyMessage }: ContentGridProps) {
   if (items.length === 0) {
     return (
       <div className="flex h-56 flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-muted/20 animate-fade-in-up">
@@ -49,7 +46,6 @@ export function ContentGrid({ items, onSendSingle, emptyMessage }: ContentGridPr
             type={item.type}
             url={item.url}
             isFavorite={item.isFavorite}
-            onSendSingle={onSendSingle}
           />
         </div>
       ))}

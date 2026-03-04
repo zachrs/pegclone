@@ -10,7 +10,6 @@ import { FolderSidebar } from "@/components/library/folder-sidebar";
 import { SendCartBar } from "@/components/library/send-cart-bar";
 import { AddContentDialog } from "@/components/library/add-content-dialog";
 import { useLibraryStore } from "@/lib/hooks/use-library-store";
-import { useSendCart, type CartItem } from "@/lib/hooks/use-send-cart";
 import { getOrgContent, getSystemContent, getFolders, getFolderItems, getFavoriteIds } from "@/lib/actions/library";
 
 export default function LibraryPage() {
@@ -20,25 +19,23 @@ export default function LibraryPage() {
     activeTab,
     viewMode,
     setViewMode,
+    favorites,
   } = useLibraryStore();
-  const { addItem } = useSendCart();
-  const [sendDialogItem, setSendDialogItem] = useState<CartItem | null>(null);
 
   // DB-backed state (fix #23: include createdAt)
   const [orgContent, setOrgContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
   const [systemContent, setSystemContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
   const [folders, setFolders] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [folderItemIds, setFolderItemIds] = useState<Set<string>>(new Set());
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
-  // Load favorites from DB
+  // Use favorites from Zustand store (synced reactively)
+  const favoriteIds = favorites;
+
+  // Load favorites from DB on mount
   useEffect(() => {
     getFavoriteIds()
       .then((ids) => {
-        const idSet = new Set(ids);
-        setFavoriteIds(idSet);
-        // Sync to Zustand store
-        useLibraryStore.setState({ favorites: idSet });
+        useLibraryStore.setState({ favorites: new Set(ids) });
       })
       .catch(() => {});
   }, []);
@@ -142,11 +139,6 @@ export default function LibraryPage() {
     }));
   }, [systemContent, activeTab, favoriteIds]);
 
-  const handleSendSingle = (item: CartItem) => {
-    addItem(item);
-    setSendDialogItem(item);
-  };
-
   // Get active folder name for display
   const activeFolderObj = activeFolder
     ? folders.find((f) => f.id === activeFolder)
@@ -212,9 +204,9 @@ export default function LibraryPage() {
             <section>
               {activeTab === "all" && <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Your Content</h2>}
               {viewMode === "grid" ? (
-                <ContentGrid items={filteredOrgContent} onSendSingle={handleSendSingle} />
+                <ContentGrid items={filteredOrgContent} />
               ) : (
-                <ContentList items={filteredOrgContent} onSendSingle={handleSendSingle} />
+                <ContentList items={filteredOrgContent} />
               )}
             </section>
           )}
@@ -223,9 +215,9 @@ export default function LibraryPage() {
             <section>
               {activeTab === "all" && <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">PEG Library</h2>}
               {viewMode === "grid" ? (
-                <ContentGrid items={filteredSystemContent} onSendSingle={handleSendSingle} />
+                <ContentGrid items={filteredSystemContent} />
               ) : (
-                <ContentList items={filteredSystemContent} onSendSingle={handleSendSingle} />
+                <ContentList items={filteredSystemContent} />
               )}
             </section>
           )}
