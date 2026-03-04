@@ -269,7 +269,7 @@ export default function AnalyticsPage() {
               ) : (
                 <div className="space-y-2">
                   {stats.senderBreakdown.map((sender, i) => (
-                    <div key={sender.name} className="flex items-center gap-3 rounded-lg border px-3 py-2">
+                    <div key={sender.name} className="flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-muted/30">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span>
                       <span className="flex-1 text-sm font-medium">{sender.name}</span>
                       <Badge variant="outline" className="text-xs">{sender.count} send{sender.count !== 1 ? "s" : ""}</Badge>
@@ -322,7 +322,7 @@ export default function AnalyticsPage() {
               ) : (
                 <div className="space-y-2">
                   {stats.topContent.map((item, i) => (
-                    <div key={item.title} className="flex items-center gap-3 rounded-lg border px-3 py-2">
+                    <div key={item.title} className="flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-muted/30">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span>
                       <span className="flex-1 text-sm font-medium">{item.title}</span>
                       <Badge variant="outline" className="text-xs">{item.count} send{item.count !== 1 ? "s" : ""}</Badge>

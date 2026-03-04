@@ -177,7 +177,7 @@ export default function RecipientsPage() {
 
         {/* Detail panel */}
         {selectedContact && (
-          <div className="w-96 shrink-0 border-l bg-card">
+          <div className="w-96 shrink-0 border-l bg-card animate-slide-in-right">
             <div className="flex items-center justify-between border-b px-5 py-4">
               <h2 className="font-mono text-sm font-semibold">{selectedContact}</h2>
               <button

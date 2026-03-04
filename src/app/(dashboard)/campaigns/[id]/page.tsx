@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/table";
 import { getCampaignDetail, type CampaignDetail } from "@/lib/actions/campaigns";
 import {
-  ArrowLeft,
   Users,
   CircleCheck,
   CircleX,
@@ -49,19 +48,35 @@ export default function CampaignDetailPage() {
   if (!loaded) {
     return (
       <>
-        <Header title="Campaign" />
+        <Header breadcrumbs={[{ label: "Campaigns", href: "/campaigns" }, { label: "Loading..." }]} />
         <main className="flex-1 overflow-auto p-6">
-          <div className="mx-auto max-w-5xl space-y-6">
-            <div className="h-8 w-64 animate-pulse rounded bg-muted" />
+          <div className="mx-auto max-w-5xl space-y-6 animate-fade-in-up">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-64 animate-pulse rounded bg-muted" />
+              <div className="h-6 w-20 animate-pulse rounded-full bg-muted" />
+            </div>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="rounded-xl border p-4">
-                  <div className="h-4 w-20 animate-pulse rounded bg-muted" />
-                  <div className="mt-2 h-7 w-12 animate-pulse rounded bg-muted" />
+                <div key={i} className="rounded-xl border bg-card p-4 shadow-md">
+                  <div className="h-3 w-16 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
+                  <div className="mt-3 h-7 w-14 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
                 </div>
               ))}
             </div>
-            <div className="h-64 animate-pulse rounded-xl border bg-muted/30" />
+            <div className="overflow-hidden rounded-xl border bg-card shadow-md">
+              <div className="flex items-center gap-6 border-b bg-muted/30 px-4 py-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-3 w-20 rounded bg-muted" />
+                ))}
+              </div>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-6 border-b px-4 py-3.5 last:border-b-0">
+                  <div className="h-4 w-40 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
+                  <div className="h-5 w-14 animate-pulse rounded-full bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
+                  <div className="ml-auto h-4 w-16 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
+                </div>
+              ))}
+            </div>
           </div>
         </main>
       </>
@@ -116,16 +131,12 @@ export default function CampaignDetailPage() {
 
   return (
     <>
-      <Header title="Campaign Detail" />
+      <Header breadcrumbs={[
+        { label: "Campaigns", href: "/campaigns" },
+        { label: campaign.name },
+      ]} />
       <main className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-5xl">
-          {/* Breadcrumb */}
-          <div className="mb-4">
-            <Link href="/campaigns" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Campaigns
-            </Link>
-          </div>
+        <div className="mx-auto max-w-5xl animate-fade-in-up">
 
           {/* Campaign header */}
           <div className="mb-6 flex flex-wrap items-start justify-between gap-4">

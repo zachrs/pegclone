@@ -74,8 +74,8 @@ export function ContentList({ items, onSendSingle, emptyMessage }: ContentListPr
               <TableRow
                 key={item.id}
                 className={cn(
-                  "transition-colors",
-                  isSelected && "bg-primary/5"
+                  "transition-colors hover:bg-muted/40",
+                  isSelected && "bg-primary/5 hover:bg-primary/10"
                 )}
               >
                 <TableCell className="px-2">

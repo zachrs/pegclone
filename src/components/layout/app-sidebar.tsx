@@ -18,6 +18,7 @@ import {
 import { can } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/db/types";
 import { UserMenu } from "./user-menu";
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Library,
@@ -94,10 +95,20 @@ export function AppSidebar() {
                   {ADMIN_ITEMS.map((item) => {
                     const isActive = pathname.startsWith(item.href);
                     return (
-                      <SidebarMenuItem key={item.href}>
+                      <SidebarMenuItem key={item.href} className="relative">
+                        {isActive && (
+                          <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary animate-fade-in-scale" />
+                        )}
                         <SidebarMenuButton asChild isActive={isActive}>
-                          <Link href={item.href} aria-current={isActive ? "page" : undefined} className="gap-2.5">
-                            <item.icon className="h-4 w-4" />
+                          <Link
+                            href={item.href}
+                            aria-current={isActive ? "page" : undefined}
+                            className={cn(
+                              "gap-2.5 transition-all duration-150",
+                              isActive && "font-semibold"
+                            )}
+                          >
+                            <item.icon className={cn("h-4 w-4 transition-colors", isActive && "text-primary")} />
                             {item.label}
                           </Link>
                         </SidebarMenuButton>
@@ -158,10 +169,20 @@ export function AppSidebar() {
                     !isAdminRoute &&
                     !isSuperAdminRoute;
                   return (
-                    <SidebarMenuItem key={item.href}>
+                    <SidebarMenuItem key={item.href} className="relative">
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary animate-fade-in-scale" />
+                      )}
                       <SidebarMenuButton asChild isActive={isActive}>
-                        <Link href={item.href} aria-current={isActive ? "page" : undefined} className="gap-2.5">
-                          <item.icon className="h-4 w-4" />
+                        <Link
+                          href={item.href}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "gap-2.5 transition-all duration-150",
+                            isActive && "font-semibold"
+                          )}
+                        >
+                          <item.icon className={cn("h-4 w-4 transition-colors", isActive && "text-primary")} />
                           {item.label}
                         </Link>
                       </SidebarMenuButton>

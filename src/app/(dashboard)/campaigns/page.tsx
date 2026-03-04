@@ -58,18 +58,25 @@ export default function CampaignsPage() {
           </div>
 
           {!loaded ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between rounded-xl border px-4 py-4">
-                  <div className="flex items-center gap-4">
-                    <div className="h-5 w-40 animate-pulse rounded bg-muted" />
-                    <div className="h-5 w-16 animate-pulse rounded bg-muted" />
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="h-5 w-12 animate-pulse rounded bg-muted" />
-                    <div className="h-5 w-12 animate-pulse rounded bg-muted" />
-                    <div className="h-5 w-12 animate-pulse rounded bg-muted" />
-                  </div>
+            <div className="overflow-hidden rounded-xl border bg-card shadow-md">
+              {/* Skeleton table header */}
+              <div className="flex items-center gap-6 border-b bg-muted/30 px-4 py-3">
+                <div className="h-3 w-28 rounded bg-muted" />
+                <div className="h-3 w-16 rounded bg-muted" />
+                <div className="ml-auto h-3 w-20 rounded bg-muted" />
+                <div className="h-3 w-20 rounded bg-muted" />
+                <div className="h-3 w-16 rounded bg-muted" />
+                <div className="h-3 w-16 rounded bg-muted" />
+              </div>
+              {/* Skeleton table rows */}
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-6 border-b px-4 py-3.5 last:border-b-0">
+                  <div className="h-4 w-36 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
+                  <div className="h-5 w-14 animate-pulse rounded-full bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
+                  <div className="ml-auto h-4 w-10 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
+                  <div className="h-4 w-12 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
+                  <div className="h-5 w-14 animate-pulse rounded-full bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
+                  <div className="h-4 w-20 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 0.05}s` }} />
                 </div>
               ))}
             </div>
@@ -108,7 +115,7 @@ export default function CampaignsPage() {
                 </TableHeader>
                 <TableBody>
                   {campaigns.map((c) => (
-                    <TableRow key={c.id} className="group">
+                    <TableRow key={c.id} className="group transition-colors hover:bg-muted/40">
                       <TableCell>
                         <Link
                           href={`/campaigns/${c.id}`}
