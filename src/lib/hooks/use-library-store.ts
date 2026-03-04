@@ -51,7 +51,7 @@ interface LibraryState {
 
 const INITIAL_FOLDERS: LibraryFolder[] = [
   { id: "favorites", name: "Favorites", type: "favorites" },
-  { id: "my-uploads", name: "My Uploads", type: "personal" },
+  { id: "my-uploads", name: "My Materials", type: "personal" },
   { id: "team-materials", name: "My Team's Materials", type: "team" },
   { id: "speech-therapy", name: "Speech Therapy", type: "personal" },
   { id: "fpm-info", name: "FPM: AWH FPM Information", type: "team" },

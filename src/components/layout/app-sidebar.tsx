@@ -30,6 +30,7 @@ import {
   Building2,
   UserCog,
   Activity,
+  Globe,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -56,6 +57,70 @@ export function AppSidebar() {
   const userRole = role as UserRole;
   const isAdminRoute = pathname.startsWith("/admin");
   const isSuperAdminRoute = pathname.startsWith("/super-admin");
+
+  // Super-admin platform sidebar
+  if (isSuperAdminRoute) {
+    return (
+      <Sidebar>
+        <SidebarHeader className="p-4">
+          <Link href="/super-admin/orgs" className="flex items-center gap-2">
+            <img src="/PEG transparent.png" alt="Patient Education Genius" className="h-8" />
+          </Link>
+        </SidebarHeader>
+
+        <SidebarContent>
+          <nav aria-label="Platform navigation">
+            <SidebarGroup>
+              <SidebarGroupLabel>Platform</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem className="relative">
+                    {pathname.startsWith("/super-admin/orgs") && (
+                      <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary animate-fade-in-scale" />
+                    )}
+                    <SidebarMenuButton asChild isActive={pathname.startsWith("/super-admin/orgs")}>
+                      <Link href="/super-admin/orgs" className={cn("gap-2.5 transition-all duration-150", pathname.startsWith("/super-admin/orgs") && "font-semibold")}>
+                        <Building2 className={cn("h-4 w-4 transition-colors", pathname.startsWith("/super-admin/orgs") && "text-primary")} />
+                        Organizations
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup>
+              <SidebarGroupLabel>My Organization</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <Link href="/library" className="gap-2.5 text-muted-foreground">
+                        <Library className="h-4 w-4" />
+                        Library
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <Link href="/admin/users" className="gap-2.5 text-muted-foreground">
+                        <Settings className="h-4 w-4" />
+                        Admin Settings
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </nav>
+        </SidebarContent>
+
+        <SidebarFooter className="p-4">
+          <UserMenu />
+        </SidebarFooter>
+      </Sidebar>
+    );
+  }
 
   // Admin-specific sidebar
   if (isAdminRoute) {

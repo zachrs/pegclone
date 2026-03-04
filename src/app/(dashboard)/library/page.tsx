@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { ContentSearchBar } from "@/components/library/content-search-bar";
-import { ContentTabs } from "@/components/library/content-tabs";
 import { ContentGrid } from "@/components/library/content-grid";
 import { ContentList } from "@/components/library/content-list";
 import { FolderSidebar } from "@/components/library/folder-sidebar";
 import { SendCartBar } from "@/components/library/send-cart-bar";
 import { AddContentDialog } from "@/components/library/add-content-dialog";
 import { useLibraryStore } from "@/lib/hooks/use-library-store";
-import { getOrgContent, getSystemContent, getFolders, getFolderItems, getFavoriteIds } from "@/lib/actions/library";
+import { getOrgContent, getSystemContent, getFolders, getFolderItems, getFavoriteIds, getFavoritedContent } from "@/lib/actions/library";
+import { getOrgInfo } from "@/lib/actions/auth";
 
 export default function LibraryPage() {
   const {
@@ -26,10 +26,19 @@ export default function LibraryPage() {
   // DB-backed state
   const [orgContent, setOrgContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
   const [systemContent, setSystemContent] = useState<Array<{ id: string; title: string; source: string; sourceName?: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
+  const [favoritedContent, setFavoritedContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; algoliaObjectId: string | null; createdAt: Date }>>([]);
   const [folders, setFolders] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [folderItemIds, setFolderItemIds] = useState<Set<string>>(new Set());
+  const [orgName, setOrgName] = useState("Your Organization");
 
   const favoriteIds = favorites;
+
+  // Load org name on mount
+  useEffect(() => {
+    getOrgInfo()
+      .then((info) => setOrgName(info.name))
+      .catch(() => {});
+  }, []);
 
   // Load favorites from DB on mount
   useEffect(() => {
@@ -46,6 +55,13 @@ export default function LibraryPage() {
       .then((data) => setOrgContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>))
       .catch(() => {});
   }, [contentVersion]);
+
+  // Load favorited content (for My Materials view - includes system library favorites)
+  useEffect(() => {
+    getFavoritedContent()
+      .then((data) => setFavoritedContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; algoliaObjectId: string | null; createdAt: Date }>))
+      .catch(() => {});
+  }, [contentVersion, favorites]);
 
   // Load folders
   useEffect(() => {
@@ -90,7 +106,7 @@ export default function LibraryPage() {
       .catch(() => {});
   }, [activeFolder]);
 
-  // Filter org content
+  // Filter org content - includes uploads + favorited system items for "My Materials"
   const filteredOrgContent = useMemo(() => {
     let items = orgContent;
 
@@ -101,8 +117,8 @@ export default function LibraryPage() {
       items = items.filter((item) => folderItemIds.has(item.id));
     }
 
-    // Filter by search (only when on org tab)
-    if (activeTab === "org" && searchQuery) {
+    // Filter by search
+    if (searchQuery) {
       const q = searchQuery.toLowerCase();
       items = items.filter(
         (item) =>
@@ -111,16 +127,64 @@ export default function LibraryPage() {
       );
     }
 
-    return items.map((item) => ({
+    const mapped = items.map((item) => ({
       id: item.id,
       title: item.title,
-      source: item.source === "org_upload" ? "Your Organization" : (item.source ?? "Organization"),
+      source: item.source === "org_upload" ? orgName : (item.source ?? orgName),
       type: item.type,
       url: item.url ?? undefined,
       isFavorite: favoriteIds.has(item.id),
       createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : undefined,
     }));
-  }, [orgContent, activeFolder, searchQuery, activeTab, folderItemIds, favoriteIds]);
+
+    // When viewing My Materials (no specific folder), also include favorited system library items
+    if (!activeFolder) {
+      const orgIds = new Set(mapped.map((m) => m.id));
+      const favSystemItems = favoritedContent
+        .filter((f) => f.source === "system_library" && !orgIds.has(f.id))
+        .filter((f) => {
+          if (!searchQuery) return true;
+          const q = searchQuery.toLowerCase();
+          return f.title.toLowerCase().includes(q);
+        })
+        .map((f) => ({
+          id: f.algoliaObjectId ?? f.id,
+          title: f.title,
+          source: "PEG Library",
+          type: f.type as "pdf" | "link",
+          url: f.url ?? undefined,
+          isFavorite: true,
+          createdAt: f.createdAt ? new Date(f.createdAt).toISOString() : undefined,
+          algoliaObjectId: f.algoliaObjectId ?? undefined,
+        }));
+      return [...mapped, ...favSystemItems];
+    }
+
+    // When viewing Favorites folder, also include favorited system library items
+    if (activeFolder === "favorites") {
+      const orgIds = new Set(mapped.map((m) => m.id));
+      const favSystemItems = favoritedContent
+        .filter((f) => f.source === "system_library" && !orgIds.has(f.id))
+        .filter((f) => {
+          if (!searchQuery) return true;
+          const q = searchQuery.toLowerCase();
+          return f.title.toLowerCase().includes(q);
+        })
+        .map((f) => ({
+          id: f.algoliaObjectId ?? f.id,
+          title: f.title,
+          source: "PEG Library",
+          type: f.type as "pdf" | "link",
+          url: f.url ?? undefined,
+          isFavorite: true,
+          createdAt: f.createdAt ? new Date(f.createdAt).toISOString() : undefined,
+          algoliaObjectId: f.algoliaObjectId ?? undefined,
+        }));
+      return [...mapped, ...favSystemItems];
+    }
+
+    return mapped;
+  }, [orgContent, activeFolder, searchQuery, folderItemIds, favoriteIds, favoritedContent, orgName]);
 
   const filteredSystemContent = useMemo(() => {
     return systemContent.map((item) => ({
@@ -141,23 +205,23 @@ export default function LibraryPage() {
     : null;
 
   const currentItems = activeTab === "org" ? filteredOrgContent : filteredSystemContent;
-  const searchPlaceholder = activeTab === "org"
-    ? "Search your content..."
-    : "Search over 40,000 patient education resources";
+  const searchPlaceholder = activeTab === "system"
+    ? "Search over 40,000 patient education resources"
+    : "Search your materials...";
 
   return (
     <>
       <Header title="Content Library" />
       <main className="flex flex-1 overflow-hidden">
-        {activeTab === "org" && (
-          <aside className="hidden border-r bg-card p-4 md:block">
-            <FolderSidebar />
-          </aside>
-        )}
+        <aside className="hidden border-r bg-card p-4 md:block">
+          <FolderSidebar />
+        </aside>
 
         <div className="flex flex-1 flex-col gap-4 overflow-auto p-6 animate-fade-in-up">
           <div className="flex items-center justify-between">
-            <ContentTabs />
+            <h2 className="text-lg font-semibold">
+              {activeTab === "system" ? "PEG Library" : activeFolderObj?.name ?? "My Materials"}
+            </h2>
             <div className="flex items-center gap-2">
               <div className="flex items-center rounded-lg border bg-gray-50 p-0.5">
                 <button
