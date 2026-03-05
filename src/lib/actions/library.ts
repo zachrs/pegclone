@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { contentItems, folders, folderItems } from "@/drizzle/schema";
+import { contentItems, folders, folderItems, users } from "@/drizzle/schema";
 import { eq, and, ilike, or, desc, isNull, inArray } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
@@ -13,8 +13,24 @@ export async function getOrgContent() {
   const tenant = withTenant(session.user.tenantId);
 
   return db
-    .select()
+    .select({
+      id: contentItems.id,
+      tenantId: contentItems.tenantId,
+      algoliaObjectId: contentItems.algoliaObjectId,
+      source: contentItems.source,
+      title: contentItems.title,
+      description: contentItems.description,
+      type: contentItems.type,
+      url: contentItems.url,
+      storagePath: contentItems.storagePath,
+      isActive: contentItems.isActive,
+      createdBy: contentItems.createdBy,
+      createdAt: contentItems.createdAt,
+      updatedAt: contentItems.updatedAt,
+      uploadedBy: users.fullName,
+    })
     .from(contentItems)
+    .leftJoin(users, eq(contentItems.createdBy, users.id))
     .where(
       and(
         tenant.eq(contentItems.tenantId),
@@ -193,6 +209,7 @@ export async function addOrgContent(params: {
     .insert(contentItems)
     .values({
       tenantId: session.user.tenantId,
+      createdBy: session.user.id,
       source: "org_upload",
       title: params.title,
       description: params.description ?? null,

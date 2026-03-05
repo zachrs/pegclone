@@ -190,6 +190,7 @@ export const contentItems = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     tenantId: uuid("tenant_id").references(() => organizations.id),
+    createdBy: uuid("created_by").references(() => users.id),
     algoliaObjectId: text("algolia_object_id"),
     source: contentSourceEnum("source").notNull(),
     title: text("title").notNull(),

@@ -24,7 +24,7 @@ export default function LibraryPage() {
   } = useLibraryStore();
 
   // DB-backed state
-  const [orgContent, setOrgContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
+  const [orgContent, setOrgContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date; uploadedBy: string | null }>>([]);
   const [systemContent, setSystemContent] = useState<Array<{ id: string; title: string; source: string; sourceName?: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>>([]);
   const [favoritedContent, setFavoritedContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; algoliaObjectId: string | null; createdAt: Date }>>([]);
   const [folders, setFolders] = useState<Array<{ id: string; name: string; type: string }>>([]);
@@ -52,7 +52,7 @@ export default function LibraryPage() {
   // Load org content (refetch when contentVersion changes)
   useEffect(() => {
     getOrgContent()
-      .then((data) => setOrgContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>))
+      .then((data) => setOrgContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date; uploadedBy: string | null }>))
       .catch(() => {});
   }, [contentVersion]);
 
@@ -138,7 +138,7 @@ export default function LibraryPage() {
     const mapped = items.map((item) => ({
       id: item.id,
       title: item.title,
-      source: item.source === "org_upload" ? orgName : (item.source ?? orgName),
+      source: item.uploadedBy ?? orgName,
       type: item.type,
       url: item.url ?? undefined,
       isFavorite: favoriteIds.has(item.id),

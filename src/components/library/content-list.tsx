@@ -61,7 +61,7 @@ export function ContentList({ items, emptyMessage }: ContentListProps) {
             <TableHead className="w-8"></TableHead>
             <TableHead>Title</TableHead>
             <TableHead className="w-20">Type</TableHead>
-            <TableHead className="w-32">Source</TableHead>
+            <TableHead className="w-32">Uploaded By</TableHead>
             <TableHead className="w-28">Date Added</TableHead>
             <TableHead className="w-28 text-right">Actions</TableHead>
           </TableRow>
