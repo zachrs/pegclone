@@ -17,11 +17,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import {
   Check,
-  X,
   Send,
-  Mail,
-  MessageSquare,
-  MailPlus,
   QrCode,
   FileUp,
   FileText,
@@ -71,10 +67,9 @@ export function SendCartBar() {
 
 // ── Types ──────────────────────────────────────────────────────────────
 type SendStep = 1 | 2 | 3;
-type SendMode = "single" | "bulk";
-type DeliveryChannel = "sms" | "email" | "qr_code" | "sms_and_email";
+type SendMode = "single" | "bulk" | "qr_code";
 
-const STEP_LABELS = ["Add Recipients", "Configure Delivery", "Preview & Send"];
+const STEP_LABELS = ["Add Recipients", "Schedule", "Preview & Send"];
 
 // ── Full Send Dialog ──────────────────────────────────────────────────
 function SendDialog({
@@ -100,8 +95,7 @@ function SendDialog({
   const [bulkPreview, setBulkPreview] = useState<string[][]>([]);
   const [bulkName, setBulkName] = useState("");
 
-  // Step 2: Delivery config
-  const [channel, setChannel] = useState<DeliveryChannel>("email");
+  // Step 2: Schedule config
   const [scheduleMode, setScheduleMode] = useState<"now" | "later">("now");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
@@ -124,7 +118,6 @@ function SendDialog({
       setBulkFile(null);
       setBulkPreview([]);
       setBulkName("");
-      setChannel("email");
       setScheduleMode("now");
       setRemindersEnabled(true);
       setQrDataUrl(null);
@@ -170,10 +163,13 @@ function SendDialog({
     }
   }, []);
 
+  // Auto-detect delivery channel from contact type
+  const detectedChannel: "sms" | "email" = isEmail ? "email" : "sms";
+
   // Validation
   const canProceed = () => {
     if (step === 1) {
-      if (channel === "qr_code") return true;
+      if (mode === "qr_code") return true;
       if (mode === "single") return isValidContact;
       return bulkPreview.length > 1;
     }
@@ -189,24 +185,15 @@ function SendDialog({
         ? new Date(`${scheduledDate}T${scheduledTime}`)
         : undefined;
 
-      if (mode === "single" && channel !== "qr_code") {
-        const effectiveChannel = channel === "sms_and_email" ? "email" : channel;
+      if (mode === "single") {
         await sendMessage({
           recipientContact: contact.trim(),
           contentBlocks,
-          deliveryChannel: effectiveChannel as "sms" | "email",
+          deliveryChannel: detectedChannel,
           scheduledAt,
         });
-        if (channel === "sms_and_email") {
-          await sendMessage({
-            recipientContact: contact.trim(),
-            contentBlocks,
-            deliveryChannel: "sms",
-            scheduledAt,
-          });
-        }
-        setSentInfo({ count: 1, channel: channel === "sms_and_email" ? "SMS & Email" : channel, qr: false });
-      } else if (channel === "qr_code") {
+        setSentInfo({ count: 1, channel: detectedChannel === "sms" ? "SMS" : "Email", qr: false });
+      } else if (mode === "qr_code") {
         const result = await sendMessage({
           recipientContact: "QR Code",
           contentBlocks,
@@ -226,7 +213,7 @@ function SendDialog({
           contacts,
           contentBlocks,
           name: bulkName || undefined,
-          deliveryChannel: (channel as string) === "qr_code" ? "email" : channel as "sms" | "email" | "sms_and_email",
+
           scheduledAt,
           reminders: remindersEnabled ? {
             enabled: true,
@@ -363,6 +350,7 @@ function SendDialog({
               {([
                 { key: "single" as const, label: "Single Recipient" },
                 { key: "bulk" as const, label: "Bulk Upload" },
+                { key: "qr_code" as const, label: "QR Code" },
               ]).map((tab) => (
                 <button
                   key={tab.key}
@@ -485,37 +473,22 @@ function SendDialog({
                 )}
               </div>
             )}
+
+            {mode === "qr_code" && (
+              <div className="rounded-xl border bg-muted/30 p-6 text-center">
+                <QrCode className="mx-auto h-10 w-10 text-muted-foreground/50" />
+                <h3 className="mt-3 text-sm font-semibold">Generate a QR Code</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A scannable QR code will be created. Print or display for patients to scan. No contact info needed.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── Step 2: Delivery Config ────────────────────────────────── */}
+        {/* ── Step 2: Schedule ────────────────────────────────────────── */}
         {step === 2 && (
           <div className="space-y-4">
-            <div>
-              <Label className="mb-2 block text-xs font-medium">Delivery Channel</Label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {([
-                  { key: "email" as const, label: "Email", Icon: Mail },
-                  { key: "sms" as const, label: "SMS", Icon: MessageSquare },
-                  { key: "sms_and_email" as const, label: "Both", Icon: MailPlus },
-                  ...(mode === "single" ? [{ key: "qr_code" as const, label: "QR Code", Icon: QrCode }] : []),
-                ]).map((opt) => (
-                  <button
-                    key={opt.key}
-                    className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-2.5 text-xs font-medium transition-all ${
-                      channel === opt.key
-                        ? "border-primary bg-primary/5 text-primary shadow-sm"
-                        : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
-                    }`}
-                    onClick={() => setChannel(opt.key)}
-                  >
-                    <opt.Icon className="h-4 w-4" />
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div>
               <Label className="mb-2 block text-xs font-medium">Schedule</Label>
               <div className="flex gap-2">
@@ -552,7 +525,7 @@ function SendDialog({
               )}
             </div>
 
-            {channel !== "qr_code" && (
+            {mode !== "qr_code" && (
               <div className="rounded-xl border bg-card p-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -608,16 +581,20 @@ function SendDialog({
                   <dt className="text-muted-foreground">Recipient{mode === "bulk" ? "s" : ""}</dt>
                   <dd className="font-medium">
                     {mode === "single"
-                      ? channel === "qr_code"
+                      ? contact
+                      : mode === "qr_code"
                         ? "QR Code (anyone who scans)"
-                        : contact
-                      : `${bulkPreview.length - 1} recipients`}
+                        : `${bulkPreview.length - 1} recipients`}
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Channel</dt>
+                  <dt className="text-muted-foreground">Delivery</dt>
                   <dd className="font-medium">
-                    {channel === "sms_and_email" ? "SMS & Email" : channel === "qr_code" ? "QR Code" : channel.toUpperCase()}
+                    {mode === "qr_code"
+                      ? "QR Code"
+                      : mode === "bulk"
+                        ? "Auto-detected per contact"
+                        : isEmail ? "Email" : "SMS"}
                   </dd>
                 </div>
                 <div className="flex justify-between">
@@ -626,7 +603,7 @@ function SendDialog({
                     {scheduleMode === "now" ? "Send immediately" : `${scheduledDate} at ${scheduledTime}`}
                   </dd>
                 </div>
-                {channel !== "qr_code" && (
+                {mode !== "qr_code" && (
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Reminders</dt>
                     <dd className="font-medium">

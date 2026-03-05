@@ -314,7 +314,6 @@ export async function bulkSend(params: {
   contacts: string[];
   contentBlocks: Array<{ type: "content_item"; content_item_id: string; order: number }>;
   name?: string;
-  deliveryChannel?: "sms" | "email" | "sms_and_email";
   scheduledAt?: Date;
   reminders?: {
     enabled: boolean;
@@ -325,9 +324,6 @@ export async function bulkSend(params: {
   const session = await requireSession();
   const tenantId = session.user.tenantId;
 
-  // Determine dominant channel for campaign record
-  const channelForCampaign = params.deliveryChannel ?? "email";
-
   // Create bulk send campaign record
   const [campaign] = await db
     .insert(bulkSends)
@@ -336,7 +332,7 @@ export async function bulkSend(params: {
       createdBy: session.user.id,
       name: params.name || `Bulk Send - ${new Date().toLocaleDateString()}`,
       contentBlocks: params.contentBlocks,
-      deliveryChannel: channelForCampaign,
+      deliveryChannel: "email", // default for campaign record
       totalRecipients: params.contacts.length,
       status: "sending",
       sentAt: new Date(),
@@ -349,12 +345,8 @@ export async function bulkSend(params: {
   let failedCount = 0;
 
   for (const contact of params.contacts) {
-    const isEmail = contact.includes("@");
-    let channel: "email" | "sms" = isEmail ? "email" : "sms";
-
-    // Override channel if explicitly set (and not sms_and_email)
-    if (params.deliveryChannel === "email") channel = "email";
-    if (params.deliveryChannel === "sms") channel = "sms";
+    // Auto-detect channel from contact type
+    const channel: "email" | "sms" = contact.includes("@") ? "email" : "sms";
 
     try {
       const result = await sendMessage({
@@ -367,19 +359,6 @@ export async function bulkSend(params: {
       });
 
       results.push({ contact, messageId: result.messageId });
-
-      // For sms_and_email, send a second message via the other channel
-      if (params.deliveryChannel === "sms_and_email") {
-        const otherChannel: "email" | "sms" = channel === "email" ? "sms" : "email";
-        await sendMessage({
-          recipientContact: contact,
-          contentBlocks: params.contentBlocks,
-          deliveryChannel: otherChannel,
-          scheduledAt: params.scheduledAt,
-          bulkSendId: campaign.id,
-          reminders: params.reminders,
-        });
-      }
     } catch (err) {
       // Fix #30: Track failed sends, don't stop the whole batch
       console.error("[bulk-send] Failed for a recipient:", err instanceof Error ? err.message : "Unknown error");
