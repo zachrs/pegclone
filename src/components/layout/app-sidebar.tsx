@@ -30,6 +30,7 @@ import {
   Building2,
   UserCog,
   Activity,
+  HelpCircle,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { label: "Library", href: "/library", permission: "library.view" as const, icon: Library },
   { label: "Tracking", href: "/tracking", permission: "send.create" as const, icon: Activity },
   { label: "Analytics", href: "/analytics", permission: "analytics.personal" as const, icon: BarChart3 },
+  { label: "How-To Guide", href: "/guide", permission: "library.view" as const, icon: HelpCircle },
 ];
 
 const ADMIN_ITEMS = [
