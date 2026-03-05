@@ -47,6 +47,10 @@ export const contentItemsRelations = relations(
       fields: [contentItems.tenantId],
       references: [organizations.id],
     }),
+    creator: one(users, {
+      fields: [contentItems.createdBy],
+      references: [users.id],
+    }),
     folderItems: many(folderItems),
   })
 );

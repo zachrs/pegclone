@@ -59,7 +59,7 @@ export function ViewerContent({
     if (type === "pdf") {
       const proxyUrl = `/api/viewer/pdf?token=${encodeURIComponent(message.accessToken)}&itemId=${encodeURIComponent(itemId)}`;
       window.open(proxyUrl, "_blank", "noopener");
-    } else {
+    } else if (url) {
       window.open(url, "_blank", "noopener");
     }
   };

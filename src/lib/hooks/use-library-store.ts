@@ -20,6 +20,7 @@ export interface LibraryFolder {
   id: string;
   name: string;
   type: "personal" | "team" | "favorites";
+  ownerId?: string;
   icon?: string;
 }
 
@@ -49,85 +50,15 @@ interface LibraryState {
   toggleFolderType: (id: string, newType: "personal" | "team") => void;
 }
 
-const INITIAL_FOLDERS: LibraryFolder[] = [
-  { id: "favorites", name: "Favorites", type: "favorites" },
-  { id: "my-uploads", name: "My Materials", type: "personal" },
-  { id: "team-materials", name: "My Team's Materials", type: "team" },
-  { id: "speech-therapy", name: "Speech Therapy", type: "personal" },
-  { id: "fpm-info", name: "FPM: AWH FPM Information", type: "team" },
-  { id: "fpm-pelvic", name: "FPM: Female Pelvic Medicine", type: "team" },
-  { id: "fpm-habits", name: "FPM: Healthy Habits and Education", type: "team" },
-  { id: "gyn-onc", name: "Gyn/Onc: Caregiver Info & Support Resources", type: "team" },
-];
-
-const INITIAL_ORG_CONTENT: OrgContentItem[] = [
-  {
-    id: "org-001",
-    title: "Achilles Tendonitis",
-    source: "My Uploads",
-    type: "link",
-    url: "https://example.com/achilles",
-    isFavorite: false,
-    createdAt: "2025-09-15",
-  },
-  {
-    id: "org-002",
-    title: "Missed Birth Control",
-    source: "My Team's Materials",
-    type: "link",
-    url: "https://example.com/birth-control",
-    folderId: "team-materials",
-    isFavorite: false,
-    createdAt: "2025-08-22",
-  },
-  {
-    id: "org-003",
-    title: "Test google doc",
-    source: "My Uploads",
-    type: "link",
-    url: "https://docs.google.com/test",
-    folderId: "my-uploads",
-    isFavorite: false,
-    createdAt: "2025-10-01",
-  },
-  {
-    id: "org-004",
-    title: "Testlink",
-    source: "My Uploads",
-    type: "link",
-    url: "https://example.com/test",
-    folderId: "my-uploads",
-    isFavorite: false,
-    createdAt: "2025-10-05",
-  },
-  {
-    id: "org-005",
-    title: "InkTest2",
-    source: "My Uploads",
-    type: "pdf",
-    folderId: "my-uploads",
-    isFavorite: false,
-    createdAt: "2025-10-10",
-  },
-  {
-    id: "org-006",
-    title: "Post-Op Knee Exercises",
-    source: "My Uploads",
-    type: "pdf",
-    folderId: "my-uploads",
-    isFavorite: true,
-    createdAt: "2025-07-14",
-  },
-];
+// Folders and content are loaded from the database on mount.
+// Empty initial state ensures no stale mock data is shown.
 
 let nextId = 100;
 
 export const useLibraryStore = create<LibraryState>((set) => ({
-  folders: INITIAL_FOLDERS,
-  orgContent: INITIAL_ORG_CONTENT,
-  favorites: new Set(
-    INITIAL_ORG_CONTENT.filter((c) => c.isFavorite).map((c) => c.id)
-  ),
+  folders: [],
+  orgContent: [],
+  favorites: new Set<string>(),
   activeFolder: null,
   searchQuery: "",
   activeTab: "org",

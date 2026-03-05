@@ -15,9 +15,6 @@ import {
   X,
   GripVertical,
   Send,
-  Mail,
-  MessageSquare,
-  MailPlus,
   QrCode,
   FileUp,
   Library,
@@ -28,10 +25,9 @@ import {
 } from "lucide-react";
 
 type Step = 1 | 2 | 3 | 4;
-type SendMode = "single" | "bulk";
-type DeliveryChannel = "sms" | "email" | "qr_code" | "sms_and_email";
+type SendMode = "single" | "bulk" | "qr_code";
 
-const STEP_LABELS = ["Review Content", "Add Recipients", "Configure Delivery", "Preview & Send"];
+const STEP_LABELS = ["Review Content", "Add Recipients", "Schedule", "Preview & Send"];
 
 export function SendWizard() {
   const { items, removeItem, clear } = useSendCart();
@@ -59,7 +55,6 @@ export function SendWizard() {
   const [bulkName, setBulkName] = useState("");
 
   // Step 3 state
-  const [channel, setChannel] = useState<DeliveryChannel>("email");
   const [scheduleMode, setScheduleMode] = useState<"now" | "later">("now");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
@@ -94,6 +89,9 @@ export function SendWizard() {
   const isEmail = contact.includes("@");
   const isPhone = /^\+?\d[\d\s()-]{6,}$/.test(contact.trim());
   const isValidContact = contact.trim().length > 0 && (isEmail || isPhone);
+
+  // Auto-detect delivery channel from contact type
+  const detectedChannel: "sms" | "email" = isEmail ? "email" : "sms";
 
   const contentBlocks = orderedItems.map((item, i) => ({
     type: "content_item" as const,
@@ -149,35 +147,24 @@ export function SendWizard() {
     setSending(true);
 
     try {
-      // Fix #7: Build scheduledAt from date/time inputs
       const scheduledAt = scheduleMode === "later" && scheduledDate && scheduledTime
         ? new Date(`${scheduledDate}T${scheduledTime}`)
         : undefined;
 
-      if (mode === "single" && channel !== "qr_code") {
-        const effectiveChannel = channel === "sms_and_email" ? "email" : channel;
+      if (mode === "single") {
         await sendMessage({
           recipientContact: contact.trim(),
           contentBlocks,
-          deliveryChannel: effectiveChannel as "sms" | "email",
+          deliveryChannel: detectedChannel,
           scheduledAt,
         });
-        if (channel === "sms_and_email") {
-          await sendMessage({
-            recipientContact: contact.trim(),
-            contentBlocks,
-            deliveryChannel: "sms",
-            scheduledAt,
-          });
-        }
-        setSentInfo({ count: 1, channel: channel === "sms_and_email" ? "SMS & Email" : channel, qr: false });
-      } else if (channel === "qr_code") {
+        setSentInfo({ count: 1, channel: detectedChannel === "sms" ? "SMS" : "Email", qr: false });
+      } else if (mode === "qr_code") {
         const result = await sendMessage({
           recipientContact: "QR Code",
           contentBlocks,
           deliveryChannel: "qr_code",
         });
-        // Fix #8: Generate real QR code
         const appUrl = window.location.origin;
         const viewerUrl = `${appUrl}/m/${result.accessToken}`;
         setQrViewerUrl(viewerUrl);
@@ -186,13 +173,13 @@ export function SendWizard() {
         setQrDataUrl(dataUrl);
         setSentInfo({ count: 1, channel: "QR Code", qr: true });
       } else {
+        // Bulk: auto-detect channel per contact
         const dataRows = bulkPreview.slice(1);
         const contacts = dataRows.map((row) => row[2]?.trim()).filter((c): c is string => Boolean(c));
         const results = await bulkSend({
           contacts,
           contentBlocks,
           name: bulkName || undefined,
-          deliveryChannel: (channel as string) === "qr_code" ? "email" : channel as "sms" | "email" | "sms_and_email",
           scheduledAt,
           reminders: remindersEnabled ? {
             enabled: true,
@@ -223,7 +210,6 @@ export function SendWizard() {
     setBulkFile(null);
     setBulkPreview([]);
     setBulkName("");
-    setChannel("email");
     setScheduleMode("now");
     setRemindersEnabled(true);
   };
@@ -299,7 +285,7 @@ export function SendWizard() {
   const canProceed = () => {
     if (step === 1) return orderedItems.length > 0;
     if (step === 2) {
-      if (channel === "qr_code") return true;
+      if (mode === "qr_code") return true;
       if (mode === "single") return isValidContact;
       return bulkPreview.length > 1;
     }
@@ -410,13 +396,14 @@ export function SendWizard() {
       {step === 2 && (
         <div>
           <h2 className="mb-1 text-lg font-semibold">Add Recipients</h2>
-          <p className="mb-4 text-sm text-muted-foreground">Enter a recipient manually, search the roster, or upload a file.</p>
+          <p className="mb-4 text-sm text-muted-foreground">Enter a recipient, upload a list, or generate a QR code.</p>
 
           <div className="mb-6">
             <div className="flex gap-1 rounded-xl border bg-muted/50 p-1" role="tablist">
               {([
                 { key: "single" as const, label: "Single Recipient" },
                 { key: "bulk" as const, label: "Bulk Upload" },
+                { key: "qr_code" as const, label: "QR Code" },
               ]).map((tab) => (
                 <button
                   key={tab.key}
@@ -574,51 +561,32 @@ export function SendWizard() {
                       </tbody>
                     </table>
                   </div>
+                  <p className="mt-2 text-xs text-muted-foreground">Delivery channel will be auto-detected per contact (email or SMS).</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {mode === "qr_code" && (
+            <div className="rounded-xl border bg-muted/30 p-6 text-center">
+              <QrCode className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mt-3 text-sm font-semibold">Generate a QR Code</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                A scannable QR code will be created for this content. Print it or display it for patients to scan with their phone. No contact info needed.
+              </p>
             </div>
           )}
         </div>
       )}
 
-      {/* ── Step 3: Configure Delivery ────────────────────────────── */}
+      {/* ── Step 3: Schedule ───────────────────────────────────────── */}
       {step === 3 && (
         <div>
-          <h2 className="mb-1 text-lg font-semibold">Configure Delivery</h2>
-          <p className="mb-6 text-sm text-muted-foreground">Choose how and when to deliver.</p>
+          <h2 className="mb-1 text-lg font-semibold">Schedule</h2>
+          <p className="mb-6 text-sm text-muted-foreground">Choose when to deliver and configure reminders.</p>
 
           <div className="mb-6">
-            <Label className="mb-3 block text-sm font-medium">Delivery Channel</Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {([
-                { key: "email" as const, label: "Email", Icon: Mail },
-                { key: "sms" as const, label: "SMS", Icon: MessageSquare },
-                { key: "sms_and_email" as const, label: "Both", Icon: MailPlus },
-                ...(mode === "single" ? [{ key: "qr_code" as const, label: "QR Code", Icon: QrCode }] : []),
-              ]).map((opt) => (
-                <button
-                  key={opt.key}
-                  className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-sm font-medium transition-all ${
-                    channel === opt.key
-                      ? "border-primary bg-primary/5 text-primary shadow-sm"
-                      : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                  onClick={() => setChannel(opt.key)}
-                >
-                  <opt.Icon className="h-5 w-5" />
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            {channel === "qr_code" && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                QR code sends track aggregate scan count only. No reminders apply.
-              </p>
-            )}
-          </div>
-
-          <div className="mb-6">
-            <Label className="mb-3 block text-sm font-medium">Schedule</Label>
+            <Label className="mb-3 block text-sm font-medium">When to send</Label>
             <div className="flex gap-2">
               <button
                 className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 text-sm font-medium transition-all ${
@@ -653,7 +621,7 @@ export function SendWizard() {
             )}
           </div>
 
-          {channel !== "qr_code" && (
+          {mode !== "qr_code" && (
             <div className="rounded-xl border bg-card p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
@@ -751,16 +719,20 @@ export function SendWizard() {
                 <dt className="text-muted-foreground">Recipient{mode === "bulk" ? "s" : ""}</dt>
                 <dd className="font-medium">
                   {mode === "single"
-                    ? channel === "qr_code"
+                    ? contact
+                    : mode === "qr_code"
                       ? "QR Code (anyone who scans)"
-                      : contact
-                    : `${bulkPreview.length - 1} recipients`}
+                      : `${bulkPreview.length - 1} recipients`}
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Channel</dt>
+                <dt className="text-muted-foreground">Delivery</dt>
                 <dd className="font-medium">
-                  {channel === "sms_and_email" ? "SMS & Email" : channel === "qr_code" ? "QR Code" : channel.toUpperCase()}
+                  {mode === "qr_code"
+                    ? "QR Code"
+                    : mode === "bulk"
+                      ? "Auto-detected per contact"
+                      : isEmail ? "Email" : "SMS"}
                 </dd>
               </div>
               <div className="flex justify-between">
@@ -769,7 +741,7 @@ export function SendWizard() {
                   {scheduleMode === "now" ? "Send immediately" : `${scheduledDate} at ${scheduledTime}`}
                 </dd>
               </div>
-              {channel !== "qr_code" && (
+              {mode !== "qr_code" && (
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Reminders</dt>
                   <dd className="font-medium">

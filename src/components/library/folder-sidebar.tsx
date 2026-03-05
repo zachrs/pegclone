@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -174,10 +175,17 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
   const Icon = getIcon(folder);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
+  const { data: session } = useSession();
 
   const myUploads = isMyUploadsFolder(folder);
-  const canEdit = folder.type === "personal" && !myUploads;
-  const canToggleType = folder.type === "personal" || folder.type === "team";
+  const isAdmin = session?.user?.isAdmin === true;
+  const isOwner = session?.user?.id === folder.ownerId;
+
+  // Personal folders: owner can rename/delete. Team folders: admin can delete.
+  const canEdit = (folder.type === "personal" && isOwner && !myUploads) || (folder.type === "team" && isAdmin);
+  const canDelete = canEdit;
+  const canRename = (folder.type === "personal" && isOwner && !myUploads) || (folder.type === "team" && isAdmin);
+  const canToggleType = (folder.type === "personal" || folder.type === "team") && !myUploads;
 
   const handleRename = async () => {
     if (editName.trim() && editName !== folder.name) {
@@ -236,9 +244,9 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
         <Icon className="h-4 w-4 shrink-0" />
         <span className="truncate">{folder.name}</span>
       </button>
-      {(canEdit || (canToggleType && !myUploads)) && (
+      {(canRename || canDelete || canToggleType) && (
         <div className="absolute right-1 hidden gap-0.5 group-hover:flex">
-          {canToggleType && !myUploads && (
+          {canToggleType && isAdmin && (
             <button
               onClick={handleToggleType}
               className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -252,27 +260,27 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
               )}
             </button>
           )}
-          {canEdit && (
-            <>
-              <button
-                onClick={() => setEditing(true)}
-                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Rename folder"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                </svg>
-              </button>
-              <button
-                onClick={handleDelete}
-                className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                aria-label="Delete folder"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                </svg>
-              </button>
-            </>
+          {canRename && (
+            <button
+              onClick={() => setEditing(true)}
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Rename folder"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+              </svg>
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={handleDelete}
+              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              aria-label="Delete folder"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
+            </button>
           )}
         </div>
       )}
