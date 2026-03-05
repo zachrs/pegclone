@@ -279,6 +279,25 @@ export async function deleteFolder(id: string) {
   const session = await requireSession();
   const tenant = withTenant(session.user.tenantId);
 
+  // Fetch the folder to check ownership and type
+  const [folder] = await db
+    .select({ ownerId: folders.ownerId, type: folders.type })
+    .from(folders)
+    .where(and(eq(folders.id, id), tenant.eq(folders.tenantId)))
+    .limit(1);
+
+  if (!folder) throw new Error("Folder not found");
+
+  // Prevent deleting favorites folders
+  if (folder.type === "favorites") throw new Error("Cannot delete favorites folder");
+
+  // Authorization: personal folders → owner only; team folders → admin only
+  if (folder.type === "team") {
+    if (!session.user.isAdmin) throw new Error("Only admins can delete team folders");
+  } else {
+    if (folder.ownerId !== session.user.id) throw new Error("You can only delete your own folders");
+  }
+
   // Delete folder items first
   await db
     .delete(folderItems)

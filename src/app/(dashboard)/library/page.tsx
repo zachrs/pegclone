@@ -73,6 +73,7 @@ export default function LibraryPage() {
             id: f.id,
             name: f.name,
             type: f.type as "personal" | "team" | "favorites",
+            ownerId: f.ownerId,
           })),
         });
       })

@@ -20,6 +20,7 @@ export interface LibraryFolder {
   id: string;
   name: string;
   type: "personal" | "team" | "favorites";
+  ownerId?: string;
   icon?: string;
 }
 
