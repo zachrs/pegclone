@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { messages, recipients, bulkSends, organizations } from "@/drizzle/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { messages, recipients, bulkSends, organizations, contentItems } from "@/drizzle/schema";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
 import crypto from "crypto";
@@ -11,6 +11,48 @@ import { logAudit } from "@/lib/audit";
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * Resolve content block IDs to actual DB UUIDs.
+ * System library items from Algolia use objectID (e.g. "36850") which isn't a
+ * valid content_items.id UUID. This finds or creates the DB row for each item.
+ */
+async function resolveContentBlockIds(
+  blocks: Array<{ type: "content_item"; content_item_id: string; order: number }>
+): Promise<Array<{ type: "content_item"; content_item_id: string; order: number }>> {
+  const resolved = [];
+  for (const block of blocks) {
+    const id = block.content_item_id;
+
+    // Check if it's already a valid UUID (DB primary key)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (isUuid) {
+      resolved.push(block);
+      continue;
+    }
+
+    // It's an Algolia objectID — find or create the content_items row
+    const [existing] = await db
+      .select({ id: contentItems.id })
+      .from(contentItems)
+      .where(
+        and(
+          eq(contentItems.algoliaObjectId, id),
+          isNull(contentItems.tenantId)
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      resolved.push({ ...block, content_item_id: existing.id });
+    } else {
+      // Algolia item not yet in DB — skip it (shouldn't happen normally)
+      console.warn(`[send] Could not resolve content item with algoliaObjectId=${id}`);
+      resolved.push(block);
+    }
+  }
+  return resolved;
 }
 
 /**
@@ -131,6 +173,9 @@ export async function sendMessage(params: {
   // Fix #27: Generate subject from content blocks
   const subject = params.subject ?? "Your provider has shared health information with you";
 
+  // Resolve Algolia IDs to DB UUIDs before storing
+  const resolvedBlocks = await resolveContentBlockIds(params.contentBlocks);
+
   // Create message record in "queued" state
   const [message] = await db
     .insert(messages)
@@ -140,7 +185,7 @@ export async function sendMessage(params: {
       recipientId,
       bulkSendId: params.bulkSendId ?? null,
       subject,
-      contentBlocks: params.contentBlocks,
+      contentBlocks: resolvedBlocks,
       deliveryChannel: params.deliveryChannel,
       status: "queued",
       scheduledAt: params.scheduledAt ?? null,

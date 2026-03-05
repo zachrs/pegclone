@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { messages, messageEvents, organizations, users, contentItems } from "@/drizzle/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, isNull, and, or } from "drizzle-orm";
 import crypto from "crypto";
 import { ViewerContent } from "./viewer-content";
 
@@ -163,9 +163,14 @@ export default async function PatientViewerPage({
     content_item_id: string;
     order: number;
   }>;
-  const contentItemIds = blocks
+  const allIds = blocks
     .map((b) => b.content_item_id)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+  // Separate UUIDs from Algolia object IDs (non-UUID strings like "36850")
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidIds = allIds.filter((id) => uuidPattern.test(id));
+  const algoliaIds = allIds.filter((id) => !uuidPattern.test(id));
 
   let resolvedItems: Array<{
     id: string;
@@ -174,23 +179,44 @@ export default async function PatientViewerPage({
     url: string;
   }> = [];
 
-  if (contentItemIds.length > 0) {
+  if (allIds.length > 0) {
     try {
+      // Query by UUID primary key OR by algoliaObjectId for legacy/Algolia items
+      const conditions = [];
+      if (uuidIds.length > 0) {
+        conditions.push(inArray(contentItems.id, uuidIds));
+      }
+      if (algoliaIds.length > 0) {
+        conditions.push(
+          and(
+            inArray(contentItems.algoliaObjectId, algoliaIds),
+            isNull(contentItems.tenantId)
+          )
+        );
+      }
+
       const items = await db
         .select({
           id: contentItems.id,
+          algoliaObjectId: contentItems.algoliaObjectId,
           title: contentItems.title,
           type: contentItems.type,
           url: contentItems.url,
         })
         .from(contentItems)
-        .where(inArray(contentItems.id, contentItemIds));
+        .where(conditions.length === 1 ? conditions[0]! : or(...conditions));
 
-      // Preserve order from contentBlocks
-      const itemMap = new Map(items.map((i) => [i.id, i]));
+      // Build lookup maps: by UUID and by algoliaObjectId
+      const itemByUuid = new Map(items.map((i) => [i.id, i]));
+      const itemByAlgolia = new Map(
+        items
+          .filter((i) => i.algoliaObjectId)
+          .map((i) => [i.algoliaObjectId!, i])
+      );
+
       resolvedItems = blocks
         .sort((a, b) => a.order - b.order)
-        .map((b) => itemMap.get(b.content_item_id))
+        .map((b) => itemByUuid.get(b.content_item_id) ?? itemByAlgolia.get(b.content_item_id))
         .filter((i): i is NonNullable<typeof i> => i != null)
         .map((i) => ({
           id: i.id,
@@ -199,7 +225,8 @@ export default async function PatientViewerPage({
           url: i.url ?? "",
         }));
     } catch (err) {
-      console.error("[viewer] Failed to load content items:", err instanceof Error ? err.message : err);
+      console.error("[viewer] Failed to load content items:", err);
+      throw err;
     }
   }
 
