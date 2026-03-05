@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { useLibraryStore, type LibraryFolder } from "@/lib/hooks/use-library-store";
 import { createFolder, renameFolder as renameFolderAction, deleteFolder as deleteFolderAction } from "@/lib/actions/library";
+import { publishFolder, unpublishFolder } from "@/lib/actions/admin";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -175,6 +176,7 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
   const Icon = getIcon(folder);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: session } = useSession();
 
   const myUploads = isMyUploadsFolder(folder);
@@ -200,19 +202,34 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
   };
 
   const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
     try {
       await deleteFolderAction(folder.id);
       useLibraryStore.getState().deleteFolder(folder.id);
       toast.success("Folder deleted");
     } catch {
       toast.error("Failed to delete folder");
+    } finally {
+      setConfirmDelete(false);
     }
   };
 
-  const handleToggleType = () => {
+  const handleToggleType = async () => {
     const newType = folder.type === "personal" ? "team" : "personal";
-    useLibraryStore.getState().toggleFolderType(folder.id, newType);
-    toast.success(`Folder moved to ${newType === "team" ? "Team" : "Personal"}`);
+    try {
+      if (newType === "team") {
+        await publishFolder(folder.id);
+      } else {
+        await unpublishFolder(folder.id);
+      }
+      useLibraryStore.getState().toggleFolderType(folder.id, newType);
+      toast.success(`Folder moved to ${newType === "team" ? "Team" : "Personal"}`);
+    } catch {
+      toast.error("Failed to update folder type");
+    }
   };
 
   if (editing) {
@@ -272,15 +289,34 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
             </button>
           )}
           {canDelete && (
-            <button
-              onClick={handleDelete}
-              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              aria-label="Delete folder"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-              </svg>
-            </button>
+            confirmDelete ? (
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={handleDelete}
+                  className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground"
+                  aria-label="Confirm delete"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="rounded px-1 py-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+                  aria-label="Cancel delete"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleDelete}
+                className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Delete folder"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                </svg>
+              </button>
+            )
           )}
         </div>
       )}

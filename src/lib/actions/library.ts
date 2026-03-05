@@ -181,8 +181,24 @@ export async function searchOrgContent(query: string) {
   const tenant = withTenant(session.user.tenantId);
 
   return db
-    .select()
+    .select({
+      id: contentItems.id,
+      tenantId: contentItems.tenantId,
+      algoliaObjectId: contentItems.algoliaObjectId,
+      source: contentItems.source,
+      title: contentItems.title,
+      description: contentItems.description,
+      type: contentItems.type,
+      url: contentItems.url,
+      storagePath: contentItems.storagePath,
+      isActive: contentItems.isActive,
+      createdBy: contentItems.createdBy,
+      createdAt: contentItems.createdAt,
+      updatedAt: contentItems.updatedAt,
+      uploadedBy: users.fullName,
+    })
     .from(contentItems)
+    .leftJoin(users, eq(contentItems.createdBy, users.id))
     .where(
       and(
         tenant.eq(contentItems.tenantId),
@@ -285,6 +301,22 @@ export async function createFolder(name: string, type: "personal" | "team" = "pe
 export async function renameFolder(id: string, name: string) {
   const session = await requireSession();
   const tenant = withTenant(session.user.tenantId);
+
+  // Fetch folder to check authorization
+  const [folder] = await db
+    .select({ ownerId: folders.ownerId, type: folders.type })
+    .from(folders)
+    .where(and(eq(folders.id, id), tenant.eq(folders.tenantId)))
+    .limit(1);
+
+  if (!folder) throw new Error("Folder not found");
+  if (folder.type === "favorites") throw new Error("Cannot rename favorites folder");
+
+  if (folder.type === "team") {
+    if (!session.user.isAdmin) throw new Error("Only admins can rename team folders");
+  } else {
+    if (folder.ownerId !== session.user.id) throw new Error("You can only rename your own folders");
+  }
 
   await db
     .update(folders)

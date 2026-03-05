@@ -30,6 +30,7 @@ export default function LibraryPage() {
   const [folders, setFolders] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [folderItemIds, setFolderItemIds] = useState<Set<string>>(new Set());
   const [orgName, setOrgName] = useState("Your Organization");
+  const [loading, setLoading] = useState(true);
 
   const favoriteIds = favorites;
 
@@ -53,7 +54,8 @@ export default function LibraryPage() {
   useEffect(() => {
     getOrgContent()
       .then((data) => setOrgContent(data as Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date; uploadedBy: string | null }>))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [contentVersion]);
 
   // Load favorited content (for My Materials view - includes system library favorites)
@@ -275,7 +277,13 @@ export default function LibraryPage() {
             </div>
           )}
 
-          {currentItems.length > 0 ? (
+          {loading && activeTab === "org" ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-[160px] animate-pulse rounded-xl border bg-muted/40" />
+              ))}
+            </div>
+          ) : currentItems.length > 0 ? (
             <section>
               {viewMode === "grid" ? (
                 <ContentGrid items={currentItems} />
