@@ -52,17 +52,24 @@ export default auth((req) => {
 export const config = {
   matcher: [
     /*
-     * Protect all dashboard and admin routes.
+     * Protect all authenticated routes.
      * Exclude:
      * - /m/[token] (patient viewer — public, token-gated)
-     * - /api/auth (next-auth handlers)
-     * - /api/webhooks (Twilio/Mailgun callbacks)
-     * - /api/viewer (PDF proxy — token-gated, not session-gated)
-     * - /login, /auth-error (auth pages)
+     * - /api (auth handlers, webhooks, viewer proxy — handled separately)
+     * - /login, /auth-error, /reset-password (auth pages)
      * - Static files (_next, favicon, etc.)
      */
-    "/(dashboard)(.*)",
-    "/(super-admin)(.*)",
+    "/dashboard/:path*",
+    "/library/:path*",
+    "/send/:path*",
+    "/tracking/:path*",
+    "/analytics/:path*",
+    "/recipients/:path*",
+    "/campaigns/:path*",
+    "/profile/:path*",
+    "/guide/:path*",
+    "/admin/:path*",
+    "/super-admin/:path*",
     "/mfa-verify",
   ],
 };

@@ -14,10 +14,7 @@ export async function sendSms(
     process.env.NODE_ENV === "development" ||
     process.env.TWILIO_ACCOUNT_SID === "stub"
   ) {
-    console.log("=== DEV SMS ===");
-    console.log(`To: ${params.to}`);
-    console.log(`Body: ${params.body}`);
-    console.log("===============");
+    console.log("[dev-sms] Message sent (details redacted for HIPAA compliance)");
     return { success: true, sid: `dev-sms-${Date.now()}` };
   }
 
@@ -42,10 +39,10 @@ export async function sendSms(
     });
 
     return { success: true, sid: message.sid };
-  } catch (err) {
+  } catch {
     return {
       success: false,
-      error: `SMS send failed: ${err instanceof Error ? err.message : String(err)}`,
+      error: "SMS delivery failed",
     };
   }
 }

@@ -29,12 +29,8 @@ interface ViewerMessageData {
 
 export function ViewerContent({
   message,
-  messageId,
-  tenantId,
 }: {
   message: ViewerMessageData;
-  messageId: string;
-  tenantId: string;
 }) {
   const [viewedItems, setViewedItems] = useState<Set<string>>(new Set());
   const color = message.org.primaryColor;
@@ -50,8 +46,7 @@ export function ViewerContent({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messageId,
-          tenantId,
+          accessToken: message.accessToken,
           contentItemId: itemId,
           eventType: "item_viewed",
         }),
@@ -75,8 +70,6 @@ export function ViewerContent({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messageId,
-          tenantId,
           accessToken: message.accessToken,
         }),
       });

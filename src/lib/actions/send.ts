@@ -337,7 +337,7 @@ export async function bulkSend(params: {
       }
     } catch (err) {
       // Fix #30: Track failed sends, don't stop the whole batch
-      console.error(`[bulk-send] Failed for ${contact}:`, err);
+      console.error("[bulk-send] Failed for a recipient:", err instanceof Error ? err.message : "Unknown error");
       failedCount++;
     }
   }
