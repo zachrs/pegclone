@@ -167,6 +167,9 @@ export default async function PatientViewerPage({
     .map((b) => b.content_item_id)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
 
+  console.log("[viewer] contentBlocks raw:", JSON.stringify(msg.contentBlocks));
+  console.log("[viewer] contentItemIds:", contentItemIds);
+
   let resolvedItems: Array<{
     id: string;
     title: string;
@@ -186,6 +189,8 @@ export default async function PatientViewerPage({
         .from(contentItems)
         .where(inArray(contentItems.id, contentItemIds));
 
+      console.log("[viewer] Resolved items count:", items.length);
+
       // Preserve order from contentBlocks
       const itemMap = new Map(items.map((i) => [i.id, i]));
       resolvedItems = blocks
@@ -199,8 +204,13 @@ export default async function PatientViewerPage({
           url: i.url ?? "",
         }));
     } catch (err) {
-      console.error("[viewer] Failed to load content items:", err instanceof Error ? err.message : err);
+      console.error("[viewer] Failed to load content items:", err);
+      // Re-throw so the error boundary catches it — content is the primary
+      // purpose of this page, so showing it empty is worse than an error page
+      throw err;
     }
+  } else {
+    console.warn("[viewer] No content item IDs found in contentBlocks");
   }
 
   // Update lastAccessedAt and mark as opened
