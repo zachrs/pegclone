@@ -65,8 +65,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Content not found" }, { status: 404 });
   }
 
-  // Use storagePath if available (Vercel Blob URL), fall back to url
-  const fileUrl = item.url || item.storagePath;
+  // Prefer storagePath (Vercel Blob private URL), fall back to url
+  const fileUrl = item.storagePath || item.url;
   if (!fileUrl) {
     return NextResponse.json({ error: "No file URL available" }, { status: 404 });
   }

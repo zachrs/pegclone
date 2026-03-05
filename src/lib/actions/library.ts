@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { contentItems, folders, folderItems } from "@/drizzle/schema";
-import { eq, and, ilike, or, desc, isNull } from "drizzle-orm";
+import { eq, and, ilike, or, desc, isNull, inArray } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
 
@@ -42,20 +42,28 @@ export async function getSystemContent(query: string) {
       });
       const searchResult = results[0];
       if (searchResult && "hits" in searchResult) {
-        return searchResult.hits.map((hit: Record<string, unknown>) => ({
-          id: String(hit.objectID ?? hit.id ?? ""),
-          tenantId: null,
-          algoliaObjectId: String(hit.objectID ?? ""),
-          source: "system_library" as const,
-          sourceName: hit.source ? String(hit.source) : "PEG Library",
-          title: String(hit.title ?? ""),
-          description: hit.description ? String(hit.description) : null,
-          type: (hit.type === "pdf" ? "pdf" : "link") as "pdf" | "link",
-          url: hit.url ? String(hit.url) : null,
+        const hits = searchResult.hits as Array<Record<string, unknown>>;
+
+        // Ensure each Algolia item exists in the DB with its URL so that
+        // downstream flows (send, viewer) can look them up by UUID.
+        const dbItems = await ensureSystemLibraryItems(
+          hits.map((hit) => ({
+            algoliaObjectId: String(hit.objectID ?? ""),
+            title: String(hit.title ?? ""),
+            type: (hit.type === "pdf" ? "pdf" : "link") as "pdf" | "link",
+            url: hit.url ? String(hit.url) : null,
+            source: hit.source ? String(hit.source) : "PEG Library",
+            description: hit.description ? String(hit.description) : null,
+          }))
+        );
+
+        return dbItems.map((item) => ({
+          ...item,
+          sourceName: item.description ?? "PEG Library",
           storagePath: null,
           isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: item.createdAt ?? new Date(),
+          updatedAt: item.updatedAt ?? new Date(),
         }));
       }
     } catch (err) {
@@ -77,6 +85,79 @@ export async function getSystemContent(query: string) {
     )
     .orderBy(contentItems.title)
     .limit(50);
+}
+
+/**
+ * Ensure Algolia system library items exist in the content_items table
+ * with correct URLs. Returns DB rows with real UUIDs.
+ */
+async function ensureSystemLibraryItems(
+  items: Array<{
+    algoliaObjectId: string;
+    title: string;
+    type: "pdf" | "link";
+    url: string | null;
+    source: string;
+    description: string | null;
+  }>
+) {
+  const algoliaIds = items
+    .map((i) => i.algoliaObjectId)
+    .filter((id) => id.length > 0);
+
+  if (algoliaIds.length === 0) return [];
+
+  // Find existing rows by algoliaObjectId
+  const existing = await db
+    .select()
+    .from(contentItems)
+    .where(
+      and(
+        inArray(contentItems.algoliaObjectId, algoliaIds),
+        isNull(contentItems.tenantId)
+      )
+    );
+
+  const existingByAlgolia = new Map(
+    existing.map((row) => [row.algoliaObjectId, row])
+  );
+
+  const result = [];
+
+  for (const item of items) {
+    const dbRow = existingByAlgolia.get(item.algoliaObjectId);
+
+    if (dbRow) {
+      // Update URL if it was missing or changed
+      if (item.url && dbRow.url !== item.url) {
+        await db
+          .update(contentItems)
+          .set({ url: item.url, updatedAt: new Date() })
+          .where(eq(contentItems.id, dbRow.id));
+        result.push({ ...dbRow, url: item.url });
+      } else {
+        result.push(dbRow);
+      }
+    } else {
+      // Create new row
+      const [created] = await db
+        .insert(contentItems)
+        .values({
+          tenantId: null,
+          algoliaObjectId: item.algoliaObjectId,
+          source: "system_library",
+          title: item.title,
+          description: item.description,
+          type: item.type,
+          url: item.url,
+          isActive: true,
+        })
+        .returning();
+      if (created) result.push(created);
+    }
+  }
+
+  return result;
 }
 
 export async function searchOrgContent(query: string) {
