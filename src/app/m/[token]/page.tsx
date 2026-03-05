@@ -8,27 +8,51 @@ function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+function ErrorPage({ message }: { message: string }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-sm text-center">
+        <h1 className="text-xl font-semibold text-gray-800">
+          Something Went Wrong
+        </h1>
+        <p className="mt-2 text-sm text-gray-500">{message}</p>
+      </div>
+    </main>
+  );
+}
+
 export default async function PatientViewerPage({
   params,
 }: {
   params: Promise<{ token: string }>;
 }) {
-  const { token } = await params;
+  let token: string;
+  try {
+    ({ token } = await params);
+  } catch {
+    return <ErrorPage message="Invalid link. Please check the URL or contact your provider." />;
+  }
+
   const tokenHash = hashToken(token);
 
-  // Look up message by access token hash
-  const [msg] = await db
-    .select({
-      id: messages.id,
-      tenantId: messages.tenantId,
-      senderId: messages.senderId,
-      contentBlocks: messages.contentBlocks,
-      accessTokenExpiresAt: messages.accessTokenExpiresAt,
-      openedAt: messages.openedAt,
-    })
-    .from(messages)
-    .where(eq(messages.accessTokenHash, tokenHash))
-    .limit(1);
+  let msg;
+  try {
+    [msg] = await db
+      .select({
+        id: messages.id,
+        tenantId: messages.tenantId,
+        senderId: messages.senderId,
+        contentBlocks: messages.contentBlocks,
+        accessTokenExpiresAt: messages.accessTokenExpiresAt,
+        openedAt: messages.openedAt,
+      })
+      .from(messages)
+      .where(eq(messages.accessTokenHash, tokenHash))
+      .limit(1);
+  } catch (err) {
+    console.error("[viewer] Failed to look up message:", err instanceof Error ? err.message : err);
+    return <ErrorPage message="We're having trouble loading this page. Please try again in a moment." />;
+  }
 
   if (!msg) {
     return (
@@ -47,18 +71,23 @@ export default async function PatientViewerPage({
   }
 
   // Get org info
-  const [org] = await db
-    .select({
-      name: organizations.name,
-      slug: organizations.slug,
-      logoUrl: organizations.logoUrl,
-      primaryColor: organizations.primaryColor,
-      secondaryColor: organizations.secondaryColor,
-      settings: organizations.settings,
-    })
-    .from(organizations)
-    .where(eq(organizations.id, msg.tenantId))
-    .limit(1);
+  let org;
+  try {
+    [org] = await db
+      .select({
+        name: organizations.name,
+        slug: organizations.slug,
+        logoUrl: organizations.logoUrl,
+        primaryColor: organizations.primaryColor,
+        secondaryColor: organizations.secondaryColor,
+        settings: organizations.settings,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, msg.tenantId))
+      .limit(1);
+  } catch (err) {
+    console.error("[viewer] Failed to load org:", err instanceof Error ? err.message : err);
+  }
 
   const orgPhone = (org?.settings as Record<string, Record<string, string>> | null)?.contact?.phone ?? null;
   const orgWebsite = (org?.settings as Record<string, Record<string, string>> | null)?.contact?.website ?? null;
@@ -113,15 +142,20 @@ export default async function PatientViewerPage({
   }
 
   // Get sender (provider) info
-  const [sender] = await db
-    .select({
-      fullName: users.fullName,
-      title: users.title,
-      photoUrl: users.photoUrl,
-    })
-    .from(users)
-    .where(eq(users.id, msg.senderId))
-    .limit(1);
+  let sender;
+  try {
+    [sender] = await db
+      .select({
+        fullName: users.fullName,
+        title: users.title,
+        photoUrl: users.photoUrl,
+      })
+      .from(users)
+      .where(eq(users.id, msg.senderId))
+      .limit(1);
+  } catch (err) {
+    console.error("[viewer] Failed to load sender:", err instanceof Error ? err.message : err);
+  }
 
   // Resolve content items from contentBlocks JSONB
   const blocks = (msg.contentBlocks ?? []) as Array<{
@@ -129,7 +163,9 @@ export default async function PatientViewerPage({
     content_item_id: string;
     order: number;
   }>;
-  const contentItemIds = blocks.map((b) => b.content_item_id);
+  const contentItemIds = blocks
+    .map((b) => b.content_item_id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
 
   let resolvedItems: Array<{
     id: string;
@@ -139,50 +175,59 @@ export default async function PatientViewerPage({
   }> = [];
 
   if (contentItemIds.length > 0) {
-    const items = await db
-      .select({
-        id: contentItems.id,
-        title: contentItems.title,
-        type: contentItems.type,
-        url: contentItems.url,
-      })
-      .from(contentItems)
-      .where(inArray(contentItems.id, contentItemIds));
+    try {
+      const items = await db
+        .select({
+          id: contentItems.id,
+          title: contentItems.title,
+          type: contentItems.type,
+          url: contentItems.url,
+        })
+        .from(contentItems)
+        .where(inArray(contentItems.id, contentItemIds));
 
-    // Preserve order from contentBlocks
-    const itemMap = new Map(items.map((i) => [i.id, i]));
-    resolvedItems = blocks
-      .sort((a, b) => a.order - b.order)
-      .map((b) => itemMap.get(b.content_item_id))
-      .filter((i): i is NonNullable<typeof i> => i != null)
-      .map((i) => ({
-        id: i.id,
-        title: i.title,
-        type: i.type,
-        url: i.url ?? "",
-      }));
+      // Preserve order from contentBlocks
+      const itemMap = new Map(items.map((i) => [i.id, i]));
+      resolvedItems = blocks
+        .sort((a, b) => a.order - b.order)
+        .map((b) => itemMap.get(b.content_item_id))
+        .filter((i): i is NonNullable<typeof i> => i != null)
+        .map((i) => ({
+          id: i.id,
+          title: i.title,
+          type: i.type,
+          url: i.url ?? "",
+        }));
+    } catch (err) {
+      console.error("[viewer] Failed to load content items:", err instanceof Error ? err.message : err);
+    }
   }
 
-  // Update lastAccessedAt and mark as opened (fixes #19)
-  const now = new Date();
-  await db
-    .update(messages)
-    .set({
-      lastAccessedAt: now,
-      ...(msg.openedAt ? {} : { openedAt: now }),
-      updatedAt: now,
-    })
-    .where(eq(messages.id, msg.id));
+  // Update lastAccessedAt and mark as opened
+  try {
+    const now = new Date();
+    await db
+      .update(messages)
+      .set({
+        lastAccessedAt: now,
+        ...(msg.openedAt ? {} : { openedAt: now }),
+        updatedAt: now,
+      })
+      .where(eq(messages.id, msg.id));
 
-  // Log "opened" event for audit trail (only on first open)
-  if (!msg.openedAt) {
-    await db.insert(messageEvents).values({
-      tenantId: msg.tenantId,
-      messageId: msg.id,
-      eventType: "opened",
-      payload: { source: "viewer" },
-      occurredAt: now,
-    });
+    // Log "opened" event for audit trail (only on first open)
+    if (!msg.openedAt) {
+      await db.insert(messageEvents).values({
+        tenantId: msg.tenantId,
+        messageId: msg.id,
+        eventType: "opened",
+        payload: { source: "viewer" },
+        occurredAt: now,
+      });
+    }
+  } catch (err) {
+    // Non-critical: don't block the viewer if event logging fails
+    console.error("[viewer] Failed to log open event:", err instanceof Error ? err.message : err);
   }
 
   const viewerMessage = {

@@ -15,22 +15,17 @@ function isRateLimited(ip: string): boolean {
 
   if (!entry || now > entry.resetAt) {
     loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    // Lazy cleanup: remove a few expired entries on each check
+    if (loginAttempts.size > 100) {
+      for (const [key, val] of loginAttempts) {
+        if (now > val.resetAt) loginAttempts.delete(key);
+      }
+    }
     return false;
   }
 
   entry.count++;
   return entry.count > LOGIN_MAX_ATTEMPTS;
-}
-
-// Periodically clean up expired entries to prevent memory leak
-if (typeof globalThis !== "undefined") {
-  const cleanup = () => {
-    const now = Date.now();
-    for (const [ip, entry] of loginAttempts) {
-      if (now > entry.resetAt) loginAttempts.delete(ip);
-    }
-  };
-  setInterval(cleanup, 60_000);
 }
 
 export const { GET } = handlers;
