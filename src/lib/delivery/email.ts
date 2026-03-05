@@ -13,11 +13,7 @@ export async function sendEmail(
     process.env.NODE_ENV === "development" ||
     process.env.MAILGUN_API_KEY === "stub"
   ) {
-    console.log("=== DEV EMAIL ===");
-    console.log(`To: ${params.to}`);
-    console.log(`Subject: ${params.subject}`);
-    console.log(`Body: ${params.text}`);
-    console.log("=================");
+    console.log("[dev-email] Message sent (details redacted for HIPAA compliance)");
     return { success: true };
   }
 
@@ -48,14 +44,13 @@ export async function sendEmail(
     );
 
     if (!response.ok) {
-      const errText = await response.text();
       return {
         success: false,
-        error: `Mailgun error: ${response.status} ${errText}`,
+        error: "Email delivery failed",
       };
     }
     return { success: true };
-  } catch (err) {
-    return { success: false, error: `Email send failed: ${err}` };
+  } catch {
+    return { success: false, error: "Email delivery failed" };
   }
 }

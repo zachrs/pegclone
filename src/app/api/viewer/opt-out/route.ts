@@ -2,29 +2,41 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { messages, recipients, messageEvents } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
+import crypto from "crypto";
 
 /**
  * POST /api/viewer/opt-out
  * Handles recipient opt-out from the message viewer.
- * Sets optedOut=true on the recipient record.
+ * Token-gated: requires valid access token to prevent unauthorized opt-outs.
  */
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { messageId, tenantId } = body;
+  const { accessToken } = body;
 
-  if (!messageId || !tenantId) {
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  if (!accessToken) {
+    return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }
 
-  // Look up the message to find the recipient
+  // Validate access token to derive messageId and tenantId
+  const tokenHash = crypto.createHash("sha256").update(accessToken).digest("hex");
+
   const [msg] = await db
-    .select({ recipientId: messages.recipientId })
+    .select({
+      id: messages.id,
+      tenantId: messages.tenantId,
+      recipientId: messages.recipientId,
+      accessTokenExpiresAt: messages.accessTokenExpiresAt,
+    })
     .from(messages)
-    .where(eq(messages.id, messageId))
+    .where(eq(messages.accessTokenHash, tokenHash))
     .limit(1);
 
   if (!msg) {
-    return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    return NextResponse.json({ error: "Invalid token" }, { status: 403 });
+  }
+
+  if (msg.accessTokenExpiresAt && msg.accessTokenExpiresAt < new Date()) {
+    return NextResponse.json({ error: "Token expired" }, { status: 403 });
   }
 
   // Mark recipient as opted out
@@ -38,9 +50,9 @@ export async function POST(request: NextRequest) {
 
   // Log audit event
   await db.insert(messageEvents).values({
-    tenantId,
-    messageId,
-    eventType: "opened", // Re-use opened for now; semantically this is opt-out
+    tenantId: msg.tenantId,
+    messageId: msg.id,
+    eventType: "opened",
     payload: { source: "viewer", action: "opt_out" },
     occurredAt: new Date(),
   });

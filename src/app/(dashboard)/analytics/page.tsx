@@ -25,6 +25,9 @@ import {
   Bell,
   BarChart3,
   CircleX,
+  Users,
+  FileText,
+  MousePointerClick,
 } from "lucide-react";
 
 type DateRange = "7d" | "30d" | "90d" | "all";
@@ -66,6 +69,7 @@ export default function AnalyticsPage() {
     openRate: 0, itemEngagementRate: 0, reminderEffectiveness: 0,
     totalRemindersSent: 0, openedAfterReminder: 0,
     emailCount: 0, smsCount: 0, qrCount: 0, uniqueRecipients: 0,
+    activeProviders: 0, totalMaterialsSent: 0,
     topContent: [], recentMessages: [], senderBreakdown: [],
   };
 
@@ -187,11 +191,18 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Key metrics */}
-        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+          <MetricCard label="Providers Logged In" value={campaignStats ? "—" : stats.activeProviders} icon={<Users className="h-4 w-4" />} color="purple" loading={!data} subtitle="who sent messages" />
           <MetricCard label="Messages Sent" value={displayStats.totalSent} icon={<Send className="h-4 w-4" />} loading={!data} />
+          <MetricCard label="Patient Open Rate" value={`${displayStats.openRate}%`} icon={<Eye className="h-4 w-4" />} color="teal" loading={!data} subtitle="of delivered messages" />
+          <MetricCard label="Materials Sent" value={campaignStats ? "—" : stats.totalMaterialsSent} icon={<FileText className="h-4 w-4" />} color="blue" loading={!data} subtitle="content items delivered" />
+          <MetricCard label="Item Engagement" value={campaignStats ? "—" : `${stats.itemEngagementRate}%`} icon={<MousePointerClick className="h-4 w-4" />} color="green" loading={!data} subtitle="of openers viewed an item" />
+        </div>
+
+        {/* Secondary metrics */}
+        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
           <MetricCard label="Delivered" value={displayStats.totalDelivered} icon={<CircleCheck className="h-4 w-4" />} color="green" loading={!data} />
           <MetricCard label="Opened" value={displayStats.totalOpened} icon={<Eye className="h-4 w-4" />} color="teal" loading={!data} />
-          <MetricCard label="Open Rate" value={`${displayStats.openRate}%`} icon={<TrendingUp className="h-4 w-4" />} color="blue" loading={!data} />
           <MetricCard label="Delivery Rate" value={`${displayStats.deliveryRate}%`} icon={<Zap className="h-4 w-4" />} color="purple" loading={!data} />
           <MetricCard label="Reminder Effect." value={campaignStats ? "—" : `${stats.reminderEffectiveness}%`} icon={<Bell className="h-4 w-4" />} color="amber" loading={!data} />
         </div>
@@ -376,8 +387,8 @@ export default function AnalyticsPage() {
   );
 }
 
-function MetricCard({ label, value, icon, color, loading }: {
-  label: string; value: string | number; icon: React.ReactNode; color?: string; loading?: boolean;
+function MetricCard({ label, value, icon, color, loading, subtitle }: {
+  label: string; value: string | number; icon: React.ReactNode; color?: string; loading?: boolean; subtitle?: string;
 }) {
   const colorClass = color === "green" ? "text-green-600" : color === "teal" ? "text-primary" : color === "blue" ? "text-blue-600" : color === "purple" ? "text-violet-600" : color === "amber" ? "text-amber-600" : "text-foreground";
   const iconColor = color === "green" ? "text-green-500 bg-green-50" : color === "teal" ? "text-primary bg-primary/10" : color === "blue" ? "text-blue-500 bg-blue-50" : color === "purple" ? "text-violet-500 bg-violet-50" : color === "amber" ? "text-amber-500 bg-amber-50" : "text-muted-foreground bg-muted";
@@ -391,7 +402,10 @@ function MetricCard({ label, value, icon, color, loading }: {
       {loading ? (
         <div className="h-7 w-14 animate-pulse rounded bg-muted" />
       ) : (
-        <p className={`text-2xl font-bold ${colorClass}`}>{value}</p>
+        <>
+          <p className={`text-2xl font-bold ${colorClass}`}>{value}</p>
+          {subtitle && <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>}
+        </>
       )}
     </div>
   );

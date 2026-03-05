@@ -63,26 +63,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Try public access first; if the store is private, fall back without it
-    let blob;
-    try {
-      blob = await put(path, bodyBytes, {
-        access: "public",
-        addRandomSuffix: false,
-        token,
-      });
-    } catch (publicErr) {
-      const msg = publicErr instanceof Error ? publicErr.message : "";
-      if (msg.includes("public access") || msg.includes("private")) {
-        blob = await put(path, bodyBytes, {
-          access: "private",
-          addRandomSuffix: false,
-          token,
-        });
-      } else {
-        throw publicErr;
-      }
-    }
+    // HIPAA: Always use private access. Files are served via the
+    // authenticated /api/viewer/pdf proxy, never directly.
+    const blob = await put(path, bodyBytes, {
+      access: "private",
+      addRandomSuffix: false,
+      token,
+    });
 
     return NextResponse.json({
       url: blob.url,
@@ -92,7 +79,7 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[upload] Failed:", message);
     return NextResponse.json(
-      { error: `Upload failed: ${message}` },
+      { error: "Upload failed. Please try again." },
       { status: 500 }
     );
   }

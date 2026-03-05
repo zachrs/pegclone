@@ -29,7 +29,19 @@ export async function getOrgUsers() {
   requirePermission(session.user.role, session.user.isAdmin, "admin.users");
 
   const rows = await db
-    .select()
+    .select({
+      id: users.id,
+      fullName: users.fullName,
+      email: users.email,
+      role: users.role,
+      isAdmin: users.isAdmin,
+      isActive: users.isActive,
+      title: users.title,
+      activatedAt: users.activatedAt,
+      deactivatedAt: users.deactivatedAt,
+      inviteTokenHash: users.inviteTokenHash,
+      inviteExpiresAt: users.inviteExpiresAt,
+    })
     .from(users)
     .where(
       session.user.role === "super_admin"

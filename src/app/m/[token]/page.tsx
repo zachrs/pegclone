@@ -205,5 +205,5 @@ export default async function PatientViewerPage({
     contentItems: resolvedItems,
   };
 
-  return <ViewerContent message={viewerMessage} messageId={msg.id} tenantId={msg.tenantId} />;
+  return <ViewerContent message={viewerMessage} />;
 }
