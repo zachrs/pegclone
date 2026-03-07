@@ -420,6 +420,25 @@ export const auditLogs = pgTable(
   ]
 );
 
+// ── Login Attempts (database-backed rate limiting) ────────────────────────
+
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ipAddress: text("ip_address").notNull(),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("login_attempts_ip_attempted_idx").on(
+      table.ipAddress,
+      table.attemptedAt
+    ),
+  ]
+);
+
 // ── MFA Codes ─────────────────────────────────────────────────────────────
 
 export const mfaCodes = pgTable(
