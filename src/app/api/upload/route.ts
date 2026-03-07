@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { auth } from "@/lib/auth";
+import path from "path";
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+const MIME_WHITELIST: Record<string, string[]> = {
+  pdf: ["application/pdf"],
+  png: ["image/png"],
+  jpg: ["image/jpeg"],
+  jpeg: ["image/jpeg"],
+  svg: ["image/svg+xml"],
+  webp: ["image/webp"],
+  gif: ["image/gif"],
+};
 
 /**
  * POST /api/upload
@@ -34,9 +46,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Validate file type
-  const ext = filename.split(".").pop()?.toLowerCase();
-  const allowedTypes = ["pdf", "png", "jpg", "jpeg", "svg", "webp", "gif"];
+  // Issue #8: Sanitize filename to prevent path traversal
+  const safeName = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
+  if (!safeName || safeName.startsWith(".")) {
+    return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
+  }
+
+  // Validate file type by extension
+  const ext = safeName.split(".").pop()?.toLowerCase();
+  const allowedTypes = Object.keys(MIME_WHITELIST);
   if (!ext || !allowedTypes.includes(ext)) {
     return NextResponse.json(
       { error: `File type .${ext} not allowed. Allowed: ${allowedTypes.join(", ")}` },
@@ -50,8 +68,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No file body" }, { status: 400 });
   }
 
+  // Issue #8: Enforce file size limit
+  if (bodyBytes.byteLength > MAX_FILE_SIZE) {
+    return NextResponse.json(
+      { error: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB.` },
+      { status: 400 }
+    );
+  }
+
   const tenantId = session.user.tenantId;
-  const path = `${tenantId}/${folder}/${Date.now()}-${filename}`;
+  const storagePath = `${tenantId}/${folder}/${Date.now()}-${safeName}`;
 
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) {
@@ -65,7 +91,7 @@ export async function POST(request: NextRequest) {
   try {
     // HIPAA: Always use private access. Files are served via the
     // authenticated /api/viewer/pdf proxy, never directly.
-    const blob = await put(path, bodyBytes, {
+    const blob = await put(storagePath, bodyBytes, {
       access: "private",
       addRandomSuffix: false,
       token,

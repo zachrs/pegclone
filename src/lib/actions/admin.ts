@@ -11,6 +11,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import type { UserRole } from "@/lib/db/types";
 import { logAudit } from "@/lib/audit";
+import { getBaseUrl } from "@/lib/utils/url";
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -108,9 +109,7 @@ export async function inviteUser(params: {
   });
 
   // Build invite URL
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
+  const baseUrl = getBaseUrl();
   const inviteUrl = `${baseUrl}/accept-invite?token=${token}`;
 
   // Get org name for the email
@@ -176,9 +175,7 @@ export async function resendInvite(userId: string): Promise<{ success: boolean; 
     .set({ inviteTokenHash: tokenHash, inviteExpiresAt: expiresAt, updatedAt: new Date() })
     .where(eq(users.id, userId));
 
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
+  const baseUrl = getBaseUrl();
   const inviteUrl = `${baseUrl}/accept-invite?token=${token}`;
 
   const [org] = await db
@@ -959,9 +956,7 @@ export async function bulkInviteUsers(
     .limit(1);
   const orgName = org?.name ?? "Patient Education Genius";
 
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
+  const baseUrl = getBaseUrl();
 
   const skipped: Array<{ email: string; reason: string }> = [];
   let invited = 0;

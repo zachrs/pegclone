@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import type { UserRole } from "@/lib/db/types";
+import { getBaseUrl } from "@/lib/utils/url";
 
 export interface PegSession {
   user: {
@@ -39,8 +40,8 @@ export async function getSession(): Promise<PegSession | null> {
     // Auth provider unavailable
   }
 
-  // Dev fallback: use the first active user
-  if (process.env.NODE_ENV === "development") {
+  // Issue #20: Dev fallback requires explicit opt-in via DEV_AUTO_LOGIN
+  if (process.env.NODE_ENV === "development" && process.env.DEV_AUTO_LOGIN === "true") {
     return getDevSession();
   }
 
@@ -297,7 +298,7 @@ export async function requestPasswordReset(
     .set({ resetTokenHash: tokenHash, resetExpiresAt: expiresAt, updatedAt: new Date() })
     .where(eq(users.id, user.id));
 
-  const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const baseUrl = getBaseUrl();
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
   const [org] = await db

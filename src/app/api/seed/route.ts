@@ -13,6 +13,11 @@ function hashToken(token: string) {
 }
 
 export async function GET() {
+  // Issue #2: Block seed endpoint outside development
+  if (process.env.NODE_ENV !== "development") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   try {
     // ── Organizations ─────────────────────────────────────────────────────
     const acmeId = uuid();

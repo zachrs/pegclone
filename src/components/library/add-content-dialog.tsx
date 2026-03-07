@@ -90,7 +90,8 @@ function AddLinkForm({ onClose }: { onClose: () => void }) {
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
-    if (!title.trim() || !url.trim()) return;
+    if (!title.trim()) { toast.error("Please enter a title"); return; }
+    if (!url.trim()) { toast.error("Please enter a URL"); return; }
     setSaving(true);
     try {
       // Save to database (fix #5: pass folderId)
@@ -100,8 +101,8 @@ function AddLinkForm({ onClose }: { onClose: () => void }) {
         url: url.trim(),
         folderId: folderId || undefined,
       });
-    } catch (err) {
-      console.error("[add-link] DB save failed, using local store:", err);
+    } catch {
+      // DB save failed, fall back to local store
     }
     // Always update local Zustand store for UI feedback
     addOrgContent({
@@ -223,8 +224,8 @@ function UploadPdfForm({ onClose }: { onClose: () => void }) {
           storagePath: pathname,
           folderId: folderId || undefined,
         });
-      } catch (dbErr) {
-        console.error("[upload-pdf] DB save failed, using local store:", dbErr);
+      } catch {
+        // DB save failed, fall back to local store
       }
 
       setProgress(100);

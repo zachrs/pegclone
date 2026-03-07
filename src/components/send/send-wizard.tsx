@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ type SendMode = "single" | "bulk" | "qr_code";
 const STEP_LABELS = ["Review Content", "Add Recipients", "Schedule", "Preview & Send"];
 
 export function SendWizard() {
+  const router = useRouter();
   const { items, removeItem, clear } = useSendCart();
   const [step, setStep] = useState<Step>(1);
   const [sending, setSending] = useState(false);
@@ -80,14 +82,16 @@ export function SendWizard() {
     const timer = setTimeout(() => {
       searchRecipients(rosterQuery)
         .then(setRosterResults)
-        .catch(() => {})
+        .catch(() => {
+          toast.error("Search failed. Please try again.");
+        })
         .finally(() => setRosterSearching(false));
     }, 300);
     return () => clearTimeout(timer);
   }, [rosterQuery]);
 
   const isEmail = contact.includes("@");
-  const isPhone = /^\+?\d[\d\s()-]{6,}$/.test(contact.trim());
+  const isPhone = /^\+?[1-9]\d{1,14}$/.test(contact.trim().replace(/[\s()-]/g, ""));
   const isValidContact = contact.trim().length > 0 && (isEmail || isPhone);
 
   // Auto-detect delivery channel from contact type
@@ -121,7 +125,12 @@ export function SendWizard() {
     if (isExcel) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const result = e.target?.result;
+        if (!result || typeof result === "string") {
+          toast.error("Failed to read file");
+          return;
+        }
+        const data = new Uint8Array(result);
         const workbook = XLSX.read(data, { type: "array" });
         const sheetName = workbook.SheetNames[0];
         if (!sheetName) return;
@@ -130,14 +139,20 @@ export function SendWizard() {
         const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
         setBulkPreview(rows.map((r) => r.map(String)));
       };
+      reader.onerror = () => toast.error("Failed to read file");
       reader.readAsArrayBuffer(file);
     } else {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const text = e.target?.result as string;
+        const text = e.target?.result;
+        if (typeof text !== "string") {
+          toast.error("Failed to read file");
+          return;
+        }
         const lines = text.trim().split("\n");
         setBulkPreview(lines.map((l) => l.split(",").map((c) => c.trim())));
       };
+      reader.onerror = () => toast.error("Failed to read file");
       reader.readAsText(file);
     }
   }, []);
@@ -245,11 +260,14 @@ export function SendWizard() {
                 a.click();
               }}>Download PNG</Button>
               <Button variant="outline" size="sm" onClick={() => {
-                const w = window.open();
+                const html = `<!DOCTYPE html><html><body><img src="${qrDataUrl.replace(/"/g, "&quot;")}" /></body></html>`;
+                const blob = new Blob([html], { type: "text/html" });
+                const url = URL.createObjectURL(blob);
+                const w = window.open(url);
                 if (w) {
-                  w.document.write(`<img src="${qrDataUrl}" />`);
-                  w.document.close();
-                  w.print();
+                  w.onload = () => { w.print(); URL.revokeObjectURL(url); };
+                } else {
+                  URL.revokeObjectURL(url);
                 }
               }}>Print</Button>
             </div>
@@ -273,7 +291,7 @@ export function SendWizard() {
             Go to the Library to browse and select items, then come back here to send them.
           </p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={() => { window.location.href = "/library"; }}>
+        <Button variant="outline" className="gap-2" onClick={() => { router.push("/library"); }}>
           <Library className="h-4 w-4" />
           Go to Library
         </Button>
@@ -311,7 +329,7 @@ export function SendWizard() {
               const isComplete = step > stepNum;
               return (
                 <button
-                  key={i}
+                  key={label}
                   className="flex flex-col items-center gap-2"
                   onClick={() => { if (isComplete) setStep(stepNum); }}
                   disabled={!isComplete && !isActive}
@@ -769,7 +787,7 @@ export function SendWizard() {
             </Button>
           )}
           {step === 1 && (
-            <Button variant="outline" className="gap-2" onClick={() => { window.location.href = "/library"; }}>
+            <Button variant="outline" className="gap-2" onClick={() => { router.push("/library"); }}>
               <Library className="h-4 w-4" />
               Add More Content
             </Button>

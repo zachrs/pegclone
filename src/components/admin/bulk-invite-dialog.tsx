@@ -138,9 +138,14 @@ export function BulkInviteDialog({ open, onClose, onComplete }: BulkInviteDialog
       setResult(null);
       const reader = new FileReader();
       reader.onload = (e) => {
-        const text = e.target?.result as string;
+        const text = e.target?.result;
+        if (typeof text !== "string") {
+          toast.error("Failed to read file");
+          return;
+        }
         parseCSV(text);
       };
+      reader.onerror = () => toast.error("Failed to read file");
       reader.readAsText(selectedFile);
     },
     [parseCSV]
@@ -183,8 +188,9 @@ export function BulkInviteDialog({ open, onClose, onComplete }: BulkInviteDialog
       if (res.skipped.length > 0) {
         toast.warning(`${res.skipped.length} user${res.skipped.length !== 1 ? "s" : ""} skipped`);
       }
-    } catch {
-      toast.error("Failed to send invitations");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to send invitations";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -227,8 +233,8 @@ export function BulkInviteDialog({ open, onClose, onComplete }: BulkInviteDialog
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {result.skipped.map((s, i) => (
-                      <TableRow key={i}>
+                    {result.skipped.map((s) => (
+                      <TableRow key={s.email}>
                         <TableCell className="font-mono text-sm">{s.email}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{s.reason}</TableCell>
                       </TableRow>
@@ -350,7 +356,7 @@ export function BulkInviteDialog({ open, onClose, onComplete }: BulkInviteDialog
                         <TableBody>
                           {rows.map((r, i) => (
                             <TableRow
-                              key={i}
+                              key={r.email || i}
                               className={r.error ? "bg-red-50/50" : ""}
                             >
                               <TableCell className="px-2">

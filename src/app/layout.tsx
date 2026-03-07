@@ -13,7 +13,10 @@ const raleway = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Patient Education Genius",
+  title: {
+    default: "Patient Education Genius",
+    template: "%s | Patient Education Genius",
+  },
   description:
     "Send patient education materials via SMS, email, or QR code — no app download required.",
 };

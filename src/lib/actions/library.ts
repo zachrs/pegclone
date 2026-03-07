@@ -5,6 +5,7 @@ import { contentItems, folders, folderItems, users } from "@/drizzle/schema";
 import { eq, and, ilike, or, desc, isNull, inArray } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
+import { escapeLike } from "@/lib/utils/search";
 
 // ── Content queries ─────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ export async function getSystemContent(query: string) {
         isNull(contentItems.tenantId),
         eq(contentItems.source, "system_library"),
         eq(contentItems.isActive, true),
-        ilike(contentItems.title, `%${query}%`)
+        ilike(contentItems.title, `%${escapeLike(query)}%`)
       )
     )
     .orderBy(contentItems.title)
@@ -204,7 +205,7 @@ export async function searchOrgContent(query: string) {
         tenant.eq(contentItems.tenantId),
         eq(contentItems.isActive, true),
         eq(contentItems.source, "org_upload"),
-        ilike(contentItems.title, `%${query}%`)
+        ilike(contentItems.title, `%${escapeLike(query)}%`)
       )
     )
     .orderBy(contentItems.title)
