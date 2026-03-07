@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { messages, messageEvents } from "@/drizzle/schema";
 import { eq, sql } from "drizzle-orm";
 import crypto from "crypto";
+import { apiError } from "@/lib/utils/api";
 
 /**
  * Mailgun event webhook.
@@ -20,12 +21,12 @@ export async function POST(request: NextRequest) {
     const signingKey = process.env.MAILGUN_WEBHOOK_SIGNING_KEY;
     if (!signingKey) {
       console.error("[mailgun-webhook] MAILGUN_WEBHOOK_SIGNING_KEY is not set");
-      return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+      return apiError("Webhook not configured", 500);
     }
 
     const { timestamp, token, signature } = body.signature ?? {};
     if (!timestamp || !token || !signature) {
-      return NextResponse.json({ error: "Missing signature" }, { status: 403 });
+      return apiError("Missing signature", 403);
     }
 
     const hmac = crypto
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
       .digest("hex");
 
     if (hmac !== signature) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+      return apiError("Invalid signature", 403);
     }
   }
 

@@ -60,6 +60,19 @@ export async function requireSession(): Promise<PegSession> {
 }
 
 /**
+ * Issue #3: Require an authenticated session with completed MFA.
+ * Throws if not logged in or MFA is still pending.
+ * Use this for sensitive operations (admin actions, sending, etc.).
+ */
+export async function requireCompletedMfa(): Promise<PegSession> {
+  const session = await requireSession();
+  if (session.user.mfaPending) {
+    throw new Error("MFA verification required");
+  }
+  return session;
+}
+
+/**
  * Change the current user's password.
  * Validates the current password before updating.
  */

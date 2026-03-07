@@ -212,7 +212,8 @@ function UploadPdfForm({ onClose }: { onClose: () => void }) {
         throw new Error(err.error ?? "Upload failed");
       }
 
-      const { url, pathname } = await response.json();
+      const json = await response.json();
+      const { url, pathname } = json.data ?? json;
       setProgress(85);
 
       // 2. Save content item to database (fix #5: pass folderId)

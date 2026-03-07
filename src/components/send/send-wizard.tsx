@@ -183,8 +183,8 @@ export function SendWizard() {
         const appUrl = window.location.origin;
         const viewerUrl = `${appUrl}/m/${result.accessToken}`;
         setQrViewerUrl(viewerUrl);
-        const QRCode = (await import("qrcode")).default;
-        const dataUrl = await QRCode.toDataURL(viewerUrl, { width: 300, margin: 2 });
+        const { generateQRDataUrl } = await import("@/lib/utils/qr");
+        const dataUrl = await generateQRDataUrl(viewerUrl);
         setQrDataUrl(dataUrl);
         setSentInfo({ count: 1, channel: "QR Code", qr: true });
       } else {

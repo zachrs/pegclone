@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { organizations, users, folders } from "@/drizzle/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
-import { requireSession } from "./auth";
+import { requireSession, requireCompletedMfa } from "./auth";
 import { withTenant } from "@/lib/tenancy";
 import { requirePermission } from "@/lib/auth/permissions";
 import { sendEmail } from "@/lib/delivery/email";
@@ -26,7 +26,7 @@ function hashToken(token: string): string {
 // ── User Management ─────────────────────────────────────────────────────
 
 export async function getOrgUsers() {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.users");
 
   const rows = await db
@@ -64,7 +64,7 @@ export async function inviteUser(params: {
   isAdmin: boolean;
   title?: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.users");
 
   // Non-super-admins cannot create super_admin users
@@ -152,7 +152,7 @@ export async function inviteUser(params: {
 }
 
 export async function resendInvite(userId: string): Promise<{ success: boolean; error?: string }> {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.users");
   const tenant = withTenant(session.user.tenantId);
 
@@ -214,7 +214,7 @@ export async function createUser(params: {
 }
 
 export async function resetUserPassword(userId: string, newPassword: string) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.users");
   const tenant = withTenant(session.user.tenantId);
 
@@ -250,7 +250,7 @@ export async function updateUser(
   userId: string,
   updates: { role?: UserRole; isAdmin?: boolean; title?: string | null }
 ) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.users");
   const tenant = withTenant(session.user.tenantId);
 
@@ -276,7 +276,7 @@ export async function updateUser(
 }
 
 export async function deactivateUser(userId: string) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.users");
   const tenant = withTenant(session.user.tenantId);
 
@@ -312,7 +312,7 @@ export async function deactivateUser(userId: string) {
 }
 
 export async function reactivateUser(userId: string) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.users");
   const tenant = withTenant(session.user.tenantId);
 
@@ -435,7 +435,7 @@ export async function validateInviteToken(
 // ── Branding ────────────────────────────────────────────────────────────
 
 export async function getOrgBranding() {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.branding");
 
   const [org] = await db
@@ -462,7 +462,7 @@ export async function updateBranding(params: {
   address?: string;
   website?: string;
 }) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.branding");
 
   // Merge contact info into settings JSONB
@@ -506,7 +506,7 @@ export async function updateBranding(params: {
 // ── Reminder Settings ───────────────────────────────────────────────────
 
 export async function getReminderSettings() {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.reminders");
 
   const [org] = await db
@@ -528,7 +528,7 @@ export async function updateReminderSettings(params: {
   defaultMax: number;
   defaultIntervalHours: number;
 }) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.reminders");
 
   // Merge with existing settings
@@ -568,7 +568,7 @@ export async function updateReminderSettings(params: {
 // ── Message Templates ───────────────────────────────────────────────────
 
 export async function getMessageTemplates() {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.settings");
 
   const [org] = await db
@@ -592,7 +592,7 @@ export async function updateMessageTemplates(params: {
   emailSubject: string;
   emailBody: string;
 }) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.settings");
 
   const [org] = await db
@@ -630,7 +630,7 @@ export async function updateMessageTemplates(params: {
 // ── Delivery Settings ───────────────────────────────────────────────────
 
 export async function getDeliverySettings() {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.settings");
 
   const [org] = await db
@@ -650,7 +650,7 @@ export async function updateDeliverySettings(params: {
   linkExpirationDays: number;
   optOutFooter: boolean;
 }) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.settings");
 
   const [org] = await db
@@ -688,7 +688,7 @@ export async function updateDeliverySettings(params: {
 // ── MFA / Security Settings ─────────────────────────────────────────────
 
 export async function getMfaSettings() {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.settings");
 
   const [org] = await db
@@ -703,7 +703,7 @@ export async function getMfaSettings() {
 }
 
 export async function updateMfaSettings(params: { required: boolean }) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.settings");
 
   const [org] = await db
@@ -740,7 +740,7 @@ export async function updateMfaSettings(params: { required: boolean }) {
 // ── Team Folders ────────────────────────────────────────────────────────
 
 export async function publishFolder(folderId: string) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.team_folders");
   const tenant = withTenant(session.user.tenantId);
 
@@ -757,7 +757,7 @@ export async function publishFolder(folderId: string) {
 }
 
 export async function unpublishFolder(folderId: string) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.team_folders");
   const tenant = withTenant(session.user.tenantId);
 
@@ -776,7 +776,7 @@ export async function unpublishFolder(folderId: string) {
 // ── Super Admin: Organizations ──────────────────────────────────────────
 
 export async function getAllOrganizations() {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "super_admin.orgs");
 
   const orgs = await db
@@ -817,7 +817,7 @@ export async function createOrganization(params: {
   slug: string;
   primaryColor: string;
 }) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "super_admin.orgs");
 
   const [org] = await db
@@ -833,7 +833,7 @@ export async function createOrganization(params: {
 }
 
 export async function getOrganization(orgId: string) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "super_admin.orgs");
 
   const [org] = await db
@@ -849,7 +849,7 @@ export async function updateOrganization(
   orgId: string,
   params: { name?: string; slug?: string; primaryColor?: string }
 ) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "super_admin.orgs");
 
   await db
@@ -859,7 +859,7 @@ export async function updateOrganization(
 }
 
 export async function getOrgUsersForSuperAdmin(orgId: string) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "super_admin.orgs");
 
   return db
@@ -890,7 +890,7 @@ export async function createUserForOrg(
     title?: string;
   }
 ) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "super_admin.orgs");
 
   const passwordHash = await bcrypt.hash(params.password, 10);
@@ -914,7 +914,7 @@ export async function createUserForOrg(
 }
 
 export async function overrideSmsThrottle(orgId: string) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "super_admin.orgs");
 
   await db
@@ -938,7 +938,7 @@ export async function bulkInviteUsers(
     title?: string;
   }>
 ): Promise<{ total: number; invited: number; skipped: Array<{ email: string; reason: string }> }> {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   requirePermission(session.user.role, session.user.isAdmin, "admin.users");
 
   // Fetch existing emails in this tenant to skip duplicates
