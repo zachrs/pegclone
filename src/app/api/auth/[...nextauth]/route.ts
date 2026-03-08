@@ -50,8 +50,19 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
-    await recordAttempt(ip);
   }
 
-  return handlers.POST(req);
+  const response = await handlers.POST(req);
+
+  // Only record failed sign-in attempts (successful logins shouldn't count
+  // toward the rate limit, otherwise normal usage could trigger lockout)
+  if (isSignIn && response) {
+    const url = new URL(response.headers.get("location") ?? "", req.url);
+    const hasError = url.searchParams.has("error");
+    if (hasError) {
+      await recordAttempt(ip);
+    }
+  }
+
+  return response;
 }

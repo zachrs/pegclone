@@ -1,5 +1,4 @@
 import { test, expect } from "./fixtures/auth.fixture";
-import { SendPage } from "./pages/send.page";
 
 test.describe("Send Wizard", () => {
   test("redirects to library if no items in cart", async ({ authedPage }) => {
@@ -65,45 +64,49 @@ test.describe("Send Wizard", () => {
   });
 
   test("bulk mode tab exists", async ({ authedPage }) => {
-    const sendPage = new SendPage(authedPage);
-    await sendPage.goto();
+    // Select content from library and open the send dialog
+    await authedPage.goto("/library");
+    await authedPage.waitForTimeout(2000);
 
-    const url = authedPage.url();
-    if (!url.includes("/send")) {
+    const card = authedPage.locator("[class*='rounded-xl'][class*='border'][class*='shadow-md']").first();
+    if ((await card.count()) === 0) {
       test.skip();
       return;
     }
 
-    // Navigate to recipients step
-    try {
-      await sendPage.continueButton.click({ timeout: 3_000 });
-    } catch {
-      test.skip();
-      return;
-    }
+    await card.click();
+    await expect(
+      authedPage.locator("text=/\\d+ Selected/").first()
+    ).toBeVisible({ timeout: 5_000 });
 
-    // Look for bulk tab
+    // Open send dialog
+    await authedPage.getByRole("button", { name: "Send" }).click();
+
+    // Look for Bulk Upload tab in the send dialog
     const bulkTab = authedPage.getByRole("tab", { name: /bulk/i });
     await expect(bulkTab).toBeVisible({ timeout: 5_000 });
   });
 
   test("QR code tab exists", async ({ authedPage }) => {
-    const sendPage = new SendPage(authedPage);
-    await sendPage.goto();
+    // Select content from library and open the send dialog
+    await authedPage.goto("/library");
+    await authedPage.waitForTimeout(2000);
 
-    const url = authedPage.url();
-    if (!url.includes("/send")) {
+    const card = authedPage.locator("[class*='rounded-xl'][class*='border'][class*='shadow-md']").first();
+    if ((await card.count()) === 0) {
       test.skip();
       return;
     }
 
-    try {
-      await sendPage.continueButton.click({ timeout: 3_000 });
-    } catch {
-      test.skip();
-      return;
-    }
+    await card.click();
+    await expect(
+      authedPage.locator("text=/\\d+ Selected/").first()
+    ).toBeVisible({ timeout: 5_000 });
 
+    // Open send dialog
+    await authedPage.getByRole("button", { name: "Send" }).click();
+
+    // Look for QR Code tab in the send dialog
     const qrTab = authedPage.getByRole("tab", { name: /qr code/i });
     await expect(qrTab).toBeVisible({ timeout: 5_000 });
   });
