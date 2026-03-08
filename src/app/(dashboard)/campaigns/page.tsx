@@ -49,6 +49,11 @@ export default function CampaignsPage() {
                 View past bulk sends, delivery rates, and open rates per campaign.
               </p>
             </div>
+            <Button variant="outline" asChild>
+              <Link href="/campaigns/templates" className="gap-2">
+                Time-Release Templates
+              </Link>
+            </Button>
           </div>
 
           {!loaded ? (

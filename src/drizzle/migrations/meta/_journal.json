@@ -8,6 +8,13 @@
       "when": 1772924696282,
       "tag": "0000_orange_tomorrow_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772993725311,
+      "tag": "0001_add_campaign_templates",
+      "breakpoints": true
     }
   ]
 }

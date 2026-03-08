@@ -67,6 +67,11 @@ export const bulkSendStatusEnum = pgEnum("bulk_send_status", [
   "failed",
 ]);
 
+export const campaignEnrollmentStatusEnum = pgEnum(
+  "campaign_enrollment_status",
+  ["active", "completed", "paused", "cancelled"]
+);
+
 // ── Organizations ──────────────────────────────────────────────────────────
 
 export const organizations = pgTable("organizations", {
@@ -326,6 +331,117 @@ export const bulkSends = pgTable(
       .notNull(),
   },
   (table) => [index("bulk_sends_tenant_id_idx").on(table.tenantId)]
+);
+
+// ── Campaign Templates ────────────────────────────────────────────────────
+
+export type CampaignTemplateStep = {
+  stepNumber: number;
+  name: string;
+  delayDays: number;
+  contentItemIds: string[];
+  reminderEnabled: boolean;
+  maxReminders: number;
+  reminderIntervalHours: number;
+};
+
+export const campaignTemplates = pgTable(
+  "campaign_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => organizations.id)
+      .notNull(),
+    createdBy: uuid("created_by")
+      .references(() => users.id)
+      .notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").default(true).notNull(),
+    steps: jsonb("steps").notNull().$type<CampaignTemplateStep[]>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campaign_templates_tenant_id_idx").on(table.tenantId),
+  ]
+);
+
+// ── Campaign Enrollments ──────────────────────────────────────────────────
+
+export const campaignEnrollments = pgTable(
+  "campaign_enrollments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => organizations.id)
+      .notNull(),
+    templateId: uuid("template_id")
+      .references(() => campaignTemplates.id)
+      .notNull(),
+    recipientId: uuid("recipient_id")
+      .references(() => recipients.id)
+      .notNull(),
+    enrolledBy: uuid("enrolled_by")
+      .references(() => users.id)
+      .notNull(),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    status: campaignEnrollmentStatusEnum("status")
+      .default("active")
+      .notNull(),
+    currentStep: integer("current_step").default(1).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campaign_enrollments_template_recipient_idx").on(
+      table.templateId,
+      table.recipientId
+    ),
+    index("campaign_enrollments_tenant_id_idx").on(table.tenantId),
+    index("campaign_enrollments_template_id_idx").on(table.templateId),
+  ]
+);
+
+// ── Campaign Step Sends ───────────────────────────────────────────────────
+
+export const campaignStepSends = pgTable(
+  "campaign_step_sends",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => organizations.id)
+      .notNull(),
+    enrollmentId: uuid("enrollment_id")
+      .references(() => campaignEnrollments.id)
+      .notNull(),
+    stepNumber: integer("step_number").notNull(),
+    messageId: uuid("message_id")
+      .references(() => messages.id)
+      .notNull(),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campaign_step_sends_enrollment_id_idx").on(table.enrollmentId),
+    index("campaign_step_sends_tenant_id_idx").on(table.tenantId),
+  ]
 );
 
 // ── Folders ────────────────────────────────────────────────────────────────
