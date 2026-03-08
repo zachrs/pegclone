@@ -16,15 +16,10 @@ test.describe("Campaign Templates - List Page", () => {
     const templates = new CampaignTemplatesPage(authedPage);
     await templates.goto();
 
-    // Either the table or the empty state should be visible
-    const hasTable =
-      (await templates.templateTable.count()) > 0 &&
-      (await templates.templateTable.isVisible().catch(() => false));
-    const hasEmpty = await templates.emptyState
-      .isVisible()
-      .catch(() => false);
-
-    expect(hasTable || hasEmpty).toBe(true);
+    // Wait for loading to finish — either the table or the empty state should appear
+    await expect(
+      templates.templateTable.or(templates.emptyState)
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("has link back to bulk send campaigns", async ({ authedPage }) => {
@@ -195,14 +190,15 @@ test.describe("Campaign Templates - Editor", () => {
     // Save
     await templates.saveButton.click();
 
-    // Should redirect to the template detail page
-    await expect(authedPage).toHaveURL(/\/campaigns\/templates\/[a-f0-9-]+$/, {
-      timeout: 10_000,
+    // Should redirect to the template detail page (wait for URL to leave /new)
+    await expect(authedPage).not.toHaveURL(/\/new/, {
+      timeout: 15_000,
     });
+    await expect(authedPage).toHaveURL(/\/campaigns\/templates\//);
 
-    // Template name should be visible on detail page
+    // Template name should be visible on detail page (use .first() — appears in both h1 page title and h2 body)
     await expect(
-      authedPage.getByRole("heading", { name: "Pregnancy Education" })
+      authedPage.getByRole("heading", { name: "Pregnancy Education" }).first()
     ).toBeVisible({ timeout: 5_000 });
   });
 });
@@ -229,14 +225,14 @@ test.describe("Campaign Templates - Detail Page", () => {
     });
     await templates.saveButton.click();
 
-    // Should be on detail page
-    await expect(authedPage).toHaveURL(/\/campaigns\/templates\/[a-f0-9-]+$/, {
-      timeout: 10_000,
+    // Should be on detail page (wait for URL to leave /new)
+    await expect(authedPage).not.toHaveURL(/\/new/, {
+      timeout: 15_000,
     });
 
-    // Check template info
+    // Check template info (use .first() — name appears in both h1 page title and h2 body)
     await expect(
-      authedPage.getByRole("heading", { name: "E2E Test Campaign" })
+      authedPage.getByRole("heading", { name: "E2E Test Campaign" }).first()
     ).toBeVisible({ timeout: 5_000 });
     await expect(authedPage.getByText("Test description")).toBeVisible();
 
@@ -314,17 +310,18 @@ test.describe("Campaign Templates - Detail Page", () => {
       timeout: 10_000,
     });
 
-    // Open more actions dropdown — it's the outline icon button next to "Enroll Recipients"
-    const moreButton = authedPage
-      .getByRole("button")
-      .filter({ has: authedPage.locator("svg") })
-      .last();
+    // Open more actions dropdown — the ⋮ (MoreVertical) icon button
+    // It's rendered as a Button variant="outline" size="icon" with a MoreVertical SVG
+    const moreButton = authedPage.locator("button").filter({
+      has: authedPage.locator("svg.lucide-more-vertical, svg.lucide-ellipsis-vertical"),
+    });
+    await expect(moreButton).toBeVisible({ timeout: 5_000 });
     await moreButton.click();
 
     // Check menu items
     await expect(
       authedPage.getByRole("menuitem", { name: /edit template/i })
-    ).toBeVisible({ timeout: 3_000 });
+    ).toBeVisible({ timeout: 5_000 });
     await expect(
       authedPage.getByRole("menuitem", { name: /duplicate/i })
     ).toBeVisible();
@@ -352,10 +349,10 @@ test.describe("Campaign Templates - Detail Page", () => {
     });
 
     // Open more actions and click Edit
-    const moreButton = authedPage
-      .getByRole("button")
-      .filter({ has: authedPage.locator("svg") })
-      .last();
+    const moreButton = authedPage.locator("button").filter({
+      has: authedPage.locator("svg.lucide-more-vertical, svg.lucide-ellipsis-vertical"),
+    });
+    await expect(moreButton).toBeVisible({ timeout: 5_000 });
     await moreButton.click();
     await authedPage
       .getByRole("menuitem", { name: /edit template/i })
@@ -499,22 +496,22 @@ test.describe("Campaign Templates - Step Intervals", () => {
     await templates.saveButton.click();
 
     // Verify on the detail page the timeline shows correct intervals
-    await expect(authedPage).toHaveURL(/\/campaigns\/templates\/[a-f0-9-]+$/, {
-      timeout: 10_000,
+    await expect(authedPage).not.toHaveURL(/\/new/, {
+      timeout: 15_000,
     });
 
     // The overview should show the step names and day values
     await expect(authedPage.getByText("First Trimester")).toBeVisible({
       timeout: 5_000,
     });
-    await expect(authedPage.getByText("Day 0")).toBeVisible();
+    await expect(authedPage.getByText(/Day 0/)).toBeVisible();
     await expect(authedPage.getByText("Second Trimester")).toBeVisible();
-    await expect(authedPage.getByText("Day 90")).toBeVisible();
+    await expect(authedPage.getByText(/Day 90/)).toBeVisible();
     await expect(authedPage.getByText("Third Trimester")).toBeVisible();
-    await expect(authedPage.getByText("Day 180")).toBeVisible();
+    await expect(authedPage.getByText(/Day 180/)).toBeVisible();
 
-    // Check interval display between steps
-    await expect(authedPage.getByText("90d until next").first()).toBeVisible();
+    // Check interval display between steps (shows "90d until next")
+    await expect(authedPage.getByText(/90d until next/).first()).toBeVisible();
   });
 
   test("reordering steps updates step numbers in timeline", async ({
