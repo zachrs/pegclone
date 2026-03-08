@@ -9,8 +9,8 @@ test.describe("Send Wizard", () => {
     await expect(authedPage).toHaveURL(/\/(library|send)/, { timeout: 10_000 });
   });
 
-  test("shows step indicator with 4 steps", async ({ authedPage }) => {
-    // Navigate to library first, select an item, then go to send
+  test("shows step indicator with 3 steps", async ({ authedPage }) => {
+    // Navigate to library first, select an item, then open send dialog
     await authedPage.goto("/library");
     await authedPage.waitForTimeout(2000);
 
@@ -24,29 +24,44 @@ test.describe("Send Wizard", () => {
     }
 
     await card.click();
-    // Look for send button in cart bar
-    const sendLink = authedPage.locator("text=/send \\d+ item/i").first();
-    await expect(sendLink).toBeVisible({ timeout: 5_000 });
-    await sendLink.click();
+    // Cart bar should appear with "{n} Selected" badge
+    await expect(
+      authedPage.locator("text=/\\d+ Selected/").first()
+    ).toBeVisible({ timeout: 5_000 });
 
-    // Should be on send page
-    await expect(authedPage).toHaveURL(/\/send/, { timeout: 5_000 });
+    // Click Send button in the cart bar to open the send dialog
+    await authedPage.getByRole("button", { name: "Send" }).click();
+
+    // The send dialog should open with a step indicator (3 steps)
+    await expect(authedPage.locator("text=Add Recipients")).toBeVisible({ timeout: 5_000 });
+    await expect(authedPage.locator("text=Schedule")).toBeVisible();
+    await expect(authedPage.locator("text=Preview & Send")).toBeVisible();
   });
 
   test("recipient form has required fields", async ({ authedPage }) => {
-    const sendPage = new SendPage(authedPage);
-    await sendPage.goto();
+    // Select content from library and open the send dialog
+    await authedPage.goto("/library");
+    await authedPage.waitForTimeout(2000);
 
-    // If we're still on the send page (have items), check for form fields
-    const url = authedPage.url();
-    if (!url.includes("/send")) {
+    const card = authedPage.locator("[class*='rounded-xl'][class*='border'][class*='shadow-md']").first();
+    const cardCount = await card.count();
+
+    if (cardCount === 0) {
       test.skip();
       return;
     }
 
-    // The first step should be Review Content
-    // Check for continue button to proceed
-    await expect(sendPage.continueButton).toBeVisible({ timeout: 5_000 });
+    await card.click();
+    await expect(
+      authedPage.locator("text=/\\d+ Selected/").first()
+    ).toBeVisible({ timeout: 5_000 });
+
+    // Open send dialog
+    await authedPage.getByRole("button", { name: "Send" }).click();
+
+    // Step 1 shows recipient fields — email/phone input and Continue button
+    await expect(authedPage.getByLabel(/email or phone/i)).toBeVisible({ timeout: 5_000 });
+    await expect(authedPage.getByRole("button", { name: /continue/i })).toBeVisible();
   });
 
   test("bulk mode tab exists", async ({ authedPage }) => {

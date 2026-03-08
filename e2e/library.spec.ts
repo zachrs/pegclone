@@ -97,9 +97,9 @@ test.describe("Library", () => {
     // Click a content card to select it
     await library.contentCards.first().click();
 
-    // Send cart bar should appear at the bottom
+    // Send cart bar should appear at the bottom with "{n} Selected" badge and "Send" button
     await expect(
-      authedPage.locator("text=/send \\d+ item/i").first()
+      authedPage.locator("text=/\\d+ Selected/").first()
     ).toBeVisible({ timeout: 5_000 });
   });
 
@@ -111,9 +111,9 @@ test.describe("Library", () => {
     // Click Add Content button
     await library.addContentButton.click();
 
-    // Dialog should show content type options
+    // Dialog should show content type options (use .first() since "Add Link" appears as both mode toggle and form submit)
     await expect(
-      authedPage.getByRole("button", { name: /add link/i })
+      authedPage.getByRole("button", { name: /add link/i }).first()
     ).toBeVisible({ timeout: 5_000 });
   });
 

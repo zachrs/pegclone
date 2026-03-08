@@ -27,7 +27,7 @@ export class LibraryPage {
     this.newFolderButton = page.getByRole("button", { name: /new folder/i });
     this.contentCards = page.locator("[class*='rounded-xl'][class*='border'][class*='shadow-md']");
     this.loadingSkeleton = page.locator(".animate-pulse");
-    this.emptyState = page.locator("text=No content");
+    this.emptyState = page.locator("text=/No content|No results|Search the PEG Library/");
   }
 
   async goto() {
