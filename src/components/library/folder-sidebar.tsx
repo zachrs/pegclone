@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,10 +23,11 @@ import {
   Folder,
   Upload,
   BookOpen,
+  GripVertical,
 } from "lucide-react";
 
 export function FolderSidebar() {
-  const { folders, activeFolder, activeTab, setActiveFolder, setActiveTab } = useLibraryStore();
+  const { folders, activeFolder, activeTab, setActiveFolder, setActiveTab, reorderFolders } = useLibraryStore();
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderIsTeam, setNewFolderIsTeam] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -49,6 +50,24 @@ export function FolderSidebar() {
       }
     }
   };
+
+  const handleReorder = useCallback(
+    (type: "personal" | "team", reordered: LibraryFolder[]) => {
+      // Rebuild the full folder list preserving other sections
+      const others = folders.filter((f) => f.type !== type);
+      // Insert the reordered section at the position of the first folder of that type
+      const firstIdx = folders.findIndex((f) => f.type === type);
+      if (firstIdx === -1) return;
+      const result = [...others];
+      result.splice(
+        Math.min(firstIdx, result.length),
+        0,
+        ...reordered
+      );
+      reorderFolders(result);
+    },
+    [folders, reorderFolders]
+  );
 
   const isPegLibrary = activeTab === "system";
   const isMyMaterials = activeTab === "org" && !activeFolder;
@@ -140,23 +159,125 @@ export function FolderSidebar() {
         <FolderButton key={folder.id} folder={folder} isActive={activeTab === "org" && activeFolder === folder.id} onClick={() => { setActiveTab("org"); setActiveFolder(folder.id); }} />
       ))}
 
-      {personalFolders.map((folder) => {
-        if (isMyUploadsFolder(folder)) return null;
-        return (
-          <FolderButton key={folder.id} folder={folder} isActive={activeTab === "org" && activeFolder === folder.id} onClick={() => { setActiveTab("org"); setActiveFolder(folder.id); }} />
-        );
-      })}
+      <DraggableFolderList
+        folders={personalFolders.filter((f) => !isMyUploadsFolder(f))}
+        activeFolder={activeTab === "org" ? activeFolder : null}
+        onSelect={(id) => { setActiveTab("org"); setActiveFolder(id); }}
+        onReorder={(reordered) => handleReorder("personal", reordered)}
+      />
 
       {teamFolders.length > 0 && (
         <>
           <div className="my-2 h-px bg-border" />
           <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Team</p>
-          {teamFolders.map((folder) => (
-            <FolderButton key={folder.id} folder={folder} isActive={activeTab === "org" && activeFolder === folder.id} onClick={() => { setActiveTab("org"); setActiveFolder(folder.id); }} />
-          ))}
+          <DraggableFolderList
+            folders={teamFolders}
+            activeFolder={activeTab === "org" ? activeFolder : null}
+            onSelect={(id) => { setActiveTab("org"); setActiveFolder(id); }}
+            onReorder={(reordered) => handleReorder("team", reordered)}
+          />
         </>
       )}
 
+    </div>
+  );
+}
+
+function DraggableFolderList({
+  folders,
+  activeFolder,
+  onSelect,
+  onReorder,
+}: {
+  folders: LibraryFolder[];
+  activeFolder: string | null;
+  onSelect: (id: string) => void;
+  onReorder: (folders: LibraryFolder[]) => void;
+}) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const dragCounterRef = useRef(0);
+
+  const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(idx));
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setOverIdx(idx);
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setOverIdx(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent, dropIdx: number) => {
+      e.preventDefault();
+      dragCounterRef.current = 0;
+      if (dragIdx === null || dragIdx === dropIdx) {
+        setDragIdx(null);
+        setOverIdx(null);
+        return;
+      }
+      const reordered = [...folders];
+      const moved = reordered.splice(dragIdx, 1)[0];
+      if (!moved) return;
+      reordered.splice(dropIdx, 0, moved);
+      onReorder(reordered);
+      setDragIdx(null);
+      setOverIdx(null);
+    },
+    [dragIdx, folders, onReorder]
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setDragIdx(null);
+    setOverIdx(null);
+    dragCounterRef.current = 0;
+  }, []);
+
+  if (folders.length === 0) return null;
+
+  return (
+    <div>
+      {folders.map((folder, idx) => (
+        <div
+          key={folder.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, idx)}
+          onDragOver={(e) => handleDragOver(e, idx)}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, idx)}
+          onDragEnd={handleDragEnd}
+          className={cn(
+            "transition-transform",
+            dragIdx === idx && "opacity-50",
+            overIdx === idx && dragIdx !== null && dragIdx !== idx && (
+              dragIdx < idx ? "border-b-2 border-primary" : "border-t-2 border-primary"
+            )
+          )}
+        >
+          <FolderButton
+            folder={folder}
+            isActive={activeFolder === folder.id}
+            onClick={() => onSelect(folder.id)}
+            draggable
+          />
+        </div>
+      ))}
     </div>
   );
 }
@@ -172,7 +293,7 @@ function getIcon(folder: LibraryFolder) {
   return Folder;
 }
 
-function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; isActive: boolean; onClick: () => void }) {
+function FolderButton({ folder, isActive, onClick, draggable = false }: { folder: LibraryFolder; isActive: boolean; onClick: () => void; draggable?: boolean }) {
   const Icon = getIcon(folder);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
@@ -249,10 +370,16 @@ function FolderButton({ folder, isActive, onClick }: { folder: LibraryFolder; is
 
   return (
     <div className="group relative flex items-center">
+      {draggable && (
+        <div className="absolute left-0 hidden cursor-grab items-center text-muted-foreground/50 group-hover:flex" aria-hidden="true">
+          <GripVertical className="h-3 w-3" />
+        </div>
+      )}
       <button
         onClick={onClick}
         className={cn(
-          "flex flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
+          "flex flex-1 items-center gap-2.5 rounded-lg py-2 text-left text-sm font-medium transition-colors",
+          draggable ? "pl-4 pr-3" : "px-3",
           isActive
             ? "bg-primary/10 text-primary"
             : "text-muted-foreground hover:bg-muted hover:text-foreground"

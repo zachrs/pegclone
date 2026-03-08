@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { contentItems, folders, folderItems, users } from "@/drizzle/schema";
-import { eq, and, ilike, or, desc, isNull, inArray } from "drizzle-orm";
+import { eq, and, ilike, or, desc, isNull, inArray, sql, asc } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
 import { escapeLike } from "@/lib/utils/search";
@@ -280,7 +280,7 @@ export async function getFolders() {
         )
       )
     )
-    .orderBy(folders.name);
+    .orderBy(asc(folders.sortOrder), asc(folders.name));
 }
 
 export async function createFolder(name: string, type: "personal" | "team" = "personal") {
@@ -356,6 +356,30 @@ export async function deleteFolder(id: string) {
   await db
     .delete(folders)
     .where(and(eq(folders.id, id), tenant.eq(folders.tenantId)));
+}
+
+export async function reorderFolders(folderIds: string[]) {
+  const session = await requireSession();
+  const tenant = withTenant(session.user.tenantId);
+
+  // Update sort_order for each folder the user owns or (for team folders) is admin
+  const updates = folderIds.map((id, index) =>
+    db
+      .update(folders)
+      .set({ sortOrder: index, updatedAt: new Date() })
+      .where(
+        and(
+          eq(folders.id, id),
+          tenant.eq(folders.tenantId),
+          or(
+            eq(folders.ownerId, session.user.id),
+            session.user.isAdmin ? eq(folders.type, "team") : sql`false`
+          )
+        )
+      )
+  );
+
+  await Promise.all(updates);
 }
 
 export async function getFolderItems(folderId: string) {

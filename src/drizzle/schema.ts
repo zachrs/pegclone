@@ -345,6 +345,7 @@ export const folders = pgTable(
     isPublished: boolean("is_published").default(false).notNull(),
     publishedBy: uuid("published_by"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    sortOrder: integer("sort_order").default(0).notNull(),
     parentFolderId: uuid("parent_folder_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
