@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { contentItems, folders, folderItems, users } from "@/drizzle/schema";
+import { contentItems, folders, folderItems, folderShares, users } from "@/drizzle/schema";
 import { eq, and, ilike, or, desc, isNull, inArray, sql, asc } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
@@ -267,7 +267,17 @@ export async function getFolders() {
   const session = await requireSession();
   const tenant = withTenant(session.user.tenantId);
 
-  // Fix #21: Only show team folders that are published, plus user's own folders
+  // Show: user's own folders, published team folders, and folders shared with this user
+  const sharedFolderIds = db
+    .select({ folderId: folderShares.folderId })
+    .from(folderShares)
+    .where(
+      and(
+        eq(folderShares.userId, session.user.id),
+        tenant.eq(folderShares.tenantId)
+      )
+    );
+
   return db
     .select()
     .from(folders)
@@ -276,7 +286,8 @@ export async function getFolders() {
         tenant.eq(folders.tenantId),
         or(
           eq(folders.ownerId, session.user.id),
-          and(eq(folders.type, "team"), eq(folders.isPublished, true))
+          and(eq(folders.type, "team"), eq(folders.isPublished, true)),
+          inArray(folders.id, sharedFolderIds)
         )
       )
     )
@@ -380,6 +391,161 @@ export async function reorderFolders(folderIds: string[]) {
   );
 
   await Promise.all(updates);
+}
+
+// ── Folder sharing ─────────────────────────────────────────────────────
+
+export async function getShareableUsers() {
+  const session = await requireSession();
+  if (!session.user.isAdmin) throw new Error("Only admins can share folders");
+  const tenant = withTenant(session.user.tenantId);
+
+  return db
+    .select({
+      id: users.id,
+      fullName: users.fullName,
+      email: users.email,
+    })
+    .from(users)
+    .where(
+      and(
+        tenant.eq(users.tenantId),
+        eq(users.isActive, true)
+      )
+    )
+    .orderBy(asc(users.fullName));
+}
+
+export async function getFolderShares(folderId: string) {
+  const session = await requireSession();
+  const tenant = withTenant(session.user.tenantId);
+
+  // Verify the folder belongs to this tenant and user is owner or admin
+  const [folder] = await db
+    .select({ ownerId: folders.ownerId })
+    .from(folders)
+    .where(and(eq(folders.id, folderId), tenant.eq(folders.tenantId)))
+    .limit(1);
+
+  if (!folder) throw new Error("Folder not found");
+  if (folder.ownerId !== session.user.id && !session.user.isAdmin) {
+    throw new Error("Not authorized");
+  }
+
+  return db
+    .select({
+      userId: folderShares.userId,
+      fullName: users.fullName,
+      email: users.email,
+      sharedAt: folderShares.createdAt,
+    })
+    .from(folderShares)
+    .innerJoin(users, eq(folderShares.userId, users.id))
+    .where(
+      and(
+        eq(folderShares.folderId, folderId),
+        tenant.eq(folderShares.tenantId)
+      )
+    )
+    .orderBy(asc(users.fullName));
+}
+
+export async function shareFolderWithUsers(folderId: string, userIds: string[]) {
+  const session = await requireSession();
+  if (!session.user.isAdmin) throw new Error("Only admins can share folders");
+  const tenant = withTenant(session.user.tenantId);
+
+  // Verify the folder belongs to this tenant
+  const [folder] = await db
+    .select({ ownerId: folders.ownerId })
+    .from(folders)
+    .where(and(eq(folders.id, folderId), tenant.eq(folders.tenantId)))
+    .limit(1);
+
+  if (!folder) throw new Error("Folder not found");
+
+  if (userIds.length === 0) return;
+
+  // Insert shares, ignoring duplicates
+  await db
+    .insert(folderShares)
+    .values(
+      userIds.map((userId) => ({
+        tenantId: session.user.tenantId,
+        folderId,
+        userId,
+        sharedBy: session.user.id,
+      }))
+    )
+    .onConflictDoNothing();
+}
+
+export async function unshareFolderFromUsers(folderId: string, userIds: string[]) {
+  const session = await requireSession();
+  if (!session.user.isAdmin) throw new Error("Only admins can unshare folders");
+  const tenant = withTenant(session.user.tenantId);
+
+  if (userIds.length === 0) return;
+
+  await db
+    .delete(folderShares)
+    .where(
+      and(
+        eq(folderShares.folderId, folderId),
+        inArray(folderShares.userId, userIds),
+        tenant.eq(folderShares.tenantId)
+      )
+    );
+}
+
+export async function shareWithAllOrgUsers(folderId: string) {
+  const session = await requireSession();
+  if (!session.user.isAdmin) throw new Error("Only admins can share folders");
+  const tenant = withTenant(session.user.tenantId);
+
+  // Get all active users in the org
+  const orgUsers = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        tenant.eq(users.tenantId),
+        eq(users.isActive, true)
+      )
+    );
+
+  const userIds = orgUsers
+    .map((u) => u.id)
+    .filter((id) => id !== session.user.id); // Don't share with yourself (owner)
+
+  if (userIds.length === 0) return;
+
+  await db
+    .insert(folderShares)
+    .values(
+      userIds.map((userId) => ({
+        tenantId: session.user.tenantId,
+        folderId,
+        userId,
+        sharedBy: session.user.id,
+      }))
+    )
+    .onConflictDoNothing();
+}
+
+export async function unshareFromAllUsers(folderId: string) {
+  const session = await requireSession();
+  if (!session.user.isAdmin) throw new Error("Only admins can unshare folders");
+  const tenant = withTenant(session.user.tenantId);
+
+  await db
+    .delete(folderShares)
+    .where(
+      and(
+        eq(folderShares.folderId, folderId),
+        tenant.eq(folderShares.tenantId)
+      )
+    );
 }
 
 export async function getFolderItems(folderId: string) {

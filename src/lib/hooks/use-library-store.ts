@@ -48,7 +48,6 @@ interface LibraryState {
   deleteOrgContent: (id: string) => void;
   bumpContentVersion: () => void;
   reorderFolders: (reorderedFolders: LibraryFolder[]) => void;
-  toggleFolderType: (id: string, newType: "personal" | "team") => void;
 }
 
 // Folders and content are loaded from the database on mount.
@@ -159,11 +158,4 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     set({ folders: reorderedFolders });
     reorderFoldersAction(reorderedFolders.map((f) => f.id)).catch(() => {});
   },
-
-  toggleFolderType: (id, newType) =>
-    set((state) => ({
-      folders: state.folders.map((f) =>
-        f.id === id ? { ...f, type: newType } : f
-      ),
-    })),
 }));

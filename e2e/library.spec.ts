@@ -79,7 +79,6 @@ test.describe("Library", () => {
     // Dialog should appear
     await expect(authedPage.getByText("Create New Folder")).toBeVisible();
     await expect(authedPage.getByPlaceholder(/folder name/i)).toBeVisible();
-    await expect(authedPage.getByLabel(/team folder/i)).toBeVisible();
     await expect(authedPage.getByRole("button", { name: /create/i })).toBeVisible();
   });
 

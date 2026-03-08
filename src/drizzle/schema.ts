@@ -364,6 +364,38 @@ export const folders = pgTable(
   ]
 );
 
+// ── Folder Shares ─────────────────────────────────────────────────────────
+
+export const folderShares = pgTable(
+  "folder_shares",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => organizations.id)
+      .notNull(),
+    folderId: uuid("folder_id")
+      .references(() => folders.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id)
+      .notNull(),
+    sharedBy: uuid("shared_by")
+      .references(() => users.id)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("folder_shares_folder_user_idx").on(
+      table.folderId,
+      table.userId
+    ),
+    index("folder_shares_user_id_idx").on(table.userId),
+    index("folder_shares_tenant_id_idx").on(table.tenantId),
+  ]
+);
+
 // ── Folder Items ───────────────────────────────────────────────────────────
 
 export const folderItems = pgTable(

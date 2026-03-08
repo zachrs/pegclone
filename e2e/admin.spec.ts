@@ -7,11 +7,11 @@ test.describe("Admin Features", () => {
     expect(url).not.toContain("/super-admin/orgs");
   });
 
-  test("admin can see team folder actions", async ({ adminPage }) => {
+  test("admin can see share folder action", async ({ adminPage }) => {
     await adminPage.goto("/library");
     await adminPage.waitForTimeout(2000);
 
-    // Admin should see the library page with team folder toggle actions
+    // Admin should see the library page
     await expect(adminPage.getByRole("button", { name: /my materials/i })).toBeVisible();
 
     // Find a folder item and hover to reveal admin actions
@@ -26,14 +26,12 @@ test.describe("Admin Features", () => {
 
     await folderItem.hover();
 
-    // Admin should see toggle type button (Make team/personal folder)
-    const toggleButton = adminPage.locator(
-      "[aria-label='Make team folder'], [aria-label='Make personal folder']"
-    ).first();
-    await expect(toggleButton).toBeVisible({ timeout: 3_000 });
+    // Admin should see the share button
+    const shareButton = adminPage.locator("[aria-label='Share folder']").first();
+    await expect(shareButton).toBeVisible({ timeout: 3_000 });
   });
 
-  test("folder publish/unpublish requires admin", async ({ authedPage }) => {
+  test("folder sharing requires admin", async ({ authedPage }) => {
     await authedPage.goto("/library");
     await authedPage.waitForTimeout(2000);
 
@@ -49,11 +47,9 @@ test.describe("Admin Features", () => {
 
     await folderItem.hover();
 
-    // Regular users should not see publish/unpublish toggle buttons
-    const toggleButtons = authedPage.locator(
-      "[aria-label='Make team folder'], [aria-label='Make personal folder']"
-    );
-    await expect(toggleButtons.first()).not.toBeVisible({ timeout: 3_000 });
+    // Regular users should not see the share button
+    const shareButton = authedPage.locator("[aria-label='Share folder']");
+    await expect(shareButton.first()).not.toBeVisible({ timeout: 3_000 });
   });
 
   test("folder delete has confirmation step", async ({ adminPage }) => {
