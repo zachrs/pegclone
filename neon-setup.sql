@@ -105,6 +105,7 @@ CREATE INDEX IF NOT EXISTS recipients_tenant_id_idx ON recipients(tenant_id);
 CREATE TABLE IF NOT EXISTS content_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID REFERENCES organizations(id),
+  created_by UUID REFERENCES users(id),
   algolia_object_id TEXT,
   source content_source NOT NULL,
   title TEXT NOT NULL,
@@ -186,6 +187,7 @@ CREATE TABLE IF NOT EXISTS folders (
   is_published BOOLEAN NOT NULL DEFAULT false,
   published_by UUID,
   published_at TIMESTAMPTZ,
+  sort_order INTEGER NOT NULL DEFAULT 0,
   parent_folder_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -218,6 +220,36 @@ CREATE TABLE IF NOT EXISTS mfa_codes (
 );
 CREATE INDEX IF NOT EXISTS mfa_codes_user_id_idx ON mfa_codes(user_id);
 CREATE INDEX IF NOT EXISTS mfa_codes_user_expires_idx ON mfa_codes(user_id, expires_at);
+
+-- Folder Shares
+CREATE TABLE IF NOT EXISTS folder_shares (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES organizations(id),
+  folder_id UUID NOT NULL REFERENCES folders(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id),
+  shared_by UUID NOT NULL REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS folder_shares_folder_user_idx ON folder_shares(folder_id, user_id);
+CREATE INDEX IF NOT EXISTS folder_shares_user_id_idx ON folder_shares(user_id);
+CREATE INDEX IF NOT EXISTS folder_shares_tenant_id_idx ON folder_shares(tenant_id);
+
+-- Audit Logs
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES organizations(id),
+  user_id UUID REFERENCES users(id),
+  action TEXT NOT NULL,
+  resource_type TEXT,
+  resource_id TEXT,
+  details JSONB DEFAULT '{}',
+  ip_address TEXT,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS audit_logs_tenant_id_idx ON audit_logs(tenant_id);
+CREATE INDEX IF NOT EXISTS audit_logs_user_id_idx ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS audit_logs_occurred_at_idx ON audit_logs(occurred_at);
 
 -- Login Attempts (database-backed rate limiting)
 CREATE TABLE IF NOT EXISTS login_attempts (

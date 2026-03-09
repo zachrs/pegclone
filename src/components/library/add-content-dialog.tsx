@@ -94,12 +94,16 @@ function AddLinkForm({ onClose }: { onClose: () => void }) {
     if (!url.trim()) { toast.error("Please enter a URL"); return; }
     setSaving(true);
     try {
-      await addOrgContentAction({
+      const result = await addOrgContentAction({
         title: title.trim(),
         type: "link",
         url: url.trim(),
         folderId: folderId || undefined,
       });
+      if (!result.success) {
+        toast.error(result.error ?? "Failed to add link");
+        return;
+      }
       // Bump contentVersion to trigger re-fetch from DB
       useLibraryStore.getState().bumpContentVersion();
       toast.success("Link added to library");
@@ -212,13 +216,17 @@ function UploadPdfForm({ onClose }: { onClose: () => void }) {
       setProgress(85);
 
       // 2. Save content item to database
-      await addOrgContentAction({
+      const result = await addOrgContentAction({
         title: title.trim(),
         type: "pdf",
         url,
         storagePath: pathname,
         folderId: folderId || undefined,
       });
+
+      if (!result.success) {
+        throw new Error(result.error ?? "Failed to save content");
+      }
 
       setProgress(100);
 
