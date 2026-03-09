@@ -32,10 +32,18 @@ export interface DeliveryRetryJob {
   maxAttempts: number;
 }
 
+/** Job payload for processing a campaign template step for an enrolled recipient. */
+export interface ProcessCampaignStepJob {
+  enrollmentId: string;
+  stepNumber: number;
+  tenantId: string;
+}
+
 // Queue names
 export const QUEUE = {
   SEND_MESSAGE: "send-message",
   PROCESS_BULK_SEND: "process-bulk-send",
   SEND_REMINDER: "send-reminder",
   DELIVERY_RETRY: "delivery-retry",
+  PROCESS_CAMPAIGN_STEP: "process-campaign-step",
 } as const;

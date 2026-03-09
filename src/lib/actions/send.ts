@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { messages, recipients, bulkSends, organizations, contentItems } from "@/drizzle/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
-import { requireSession } from "./auth";
+import { requireSession, requireCompletedMfa } from "./auth";
 import { withTenant } from "@/lib/tenancy";
 import crypto from "crypto";
 import { enqueueDelivery } from "@/lib/jobs/enqueue";
@@ -73,7 +73,7 @@ export async function sendMessage(params: {
     intervalHours: number;
   };
 }) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   const tenant = withTenant(session.user.tenantId);
   const tenantId = session.user.tenantId;
   const senderId = session.user.id;
@@ -321,7 +321,7 @@ export async function bulkSend(params: {
     intervalHours: number;
   };
 }) {
-  const session = await requireSession();
+  const session = await requireCompletedMfa();
   const tenantId = session.user.tenantId;
 
   // Create bulk send campaign record

@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { messages, messageEvents } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 
 /**
  * POST /api/viewer/event
@@ -10,11 +12,23 @@ import crypto from "crypto";
  * Token-gated: requires valid access token to prevent forged events.
  */
 export async function POST(request: NextRequest) {
+  // Issue #10: Rate limit by IP
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`viewer-event:${ip}`, 30, 60_000)) {
+    return apiError("Too many requests", 429);
+  }
+
+  // Issue #25: Require JSON content type to prevent CSRF
+  const contentType = request.headers.get("content-type");
+  if (!contentType?.includes("application/json")) {
+    return apiError("Content-Type must be application/json", 415);
+  }
+
   const body = await request.json();
   const { accessToken, contentItemId, eventType } = body;
 
   if (!accessToken || !eventType) {
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    return apiError("Missing fields");
   }
 
   // Validate access token to derive messageId and tenantId
@@ -31,11 +45,11 @@ export async function POST(request: NextRequest) {
     .limit(1);
 
   if (!msg) {
-    return NextResponse.json({ error: "Invalid token" }, { status: 403 });
+    return apiError("Invalid token", 403);
   }
 
   if (msg.accessTokenExpiresAt && msg.accessTokenExpiresAt < new Date()) {
-    return NextResponse.json({ error: "Token expired" }, { status: 403 });
+    return apiError("Token expired", 403);
   }
 
   await db.insert(messageEvents).values({
@@ -47,5 +61,5 @@ export async function POST(request: NextRequest) {
     occurredAt: new Date(),
   });
 
-  return NextResponse.json({ ok: true });
+  return apiSuccess();
 }

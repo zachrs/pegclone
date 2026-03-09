@@ -1,3 +1,20 @@
+/**
+ * AUTH DEPENDENCY NOTE (Issue #19)
+ *
+ * This project uses next-auth@5.0.0-beta.30. As of March 2026, there is no
+ * stable v5 release — beta.30 is the latest version available. The only
+ * stable next-auth is v4.x, which targets the Pages Router and would require
+ * a full auth rewrite to adopt.
+ *
+ * Mitigations in place for using a beta dependency in a PHI-handling app:
+ *  - Database-backed login rate limiting (5 attempts / 15 min per IP)
+ *  - MFA support (6-digit OTP, per-user and per-org)
+ *  - 15-minute JWT session timeout (HIPAA compliance)
+ *  - Audit logging for sensitive actions
+ *  - bcrypt password hashing
+ *
+ * Action item: upgrade to stable next-auth v5 when released.
+ */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { db } from "@/lib/db";

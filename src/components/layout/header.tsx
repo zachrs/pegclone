@@ -18,7 +18,7 @@ export function Header({ title, breadcrumbs }: { title?: string; breadcrumbs?: B
       {breadcrumbs && breadcrumbs.length > 0 ? (
         <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
           {breadcrumbs.map((crumb, i) => (
-            <span key={i} className="flex items-center gap-1.5">
+            <span key={crumb.href ?? crumb.label} className="flex items-center gap-1.5">
               {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />}
               {crumb.href ? (
                 <Link href={crumb.href} className="text-muted-foreground transition-colors hover:text-foreground">

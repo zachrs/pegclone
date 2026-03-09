@@ -3,6 +3,10 @@ import { db } from "@/lib/db";
 import { contentItems, messages } from "@/drizzle/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import crypto from "crypto";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { apiError } from "@/lib/utils/api";
+
+const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50 MB limit for proxied PDFs
 
 /**
  * Fix #22: PDF proxy route that verifies access token before serving files.
@@ -13,11 +17,17 @@ import crypto from "crypto";
  *   - itemId: the content item ID to serve
  */
 export async function GET(req: NextRequest) {
+  // Issue #10: Rate limit by IP
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(`viewer-pdf:${ip}`, 30, 60_000)) {
+    return apiError("Too many requests", 429);
+  }
+
   const token = req.nextUrl.searchParams.get("token");
   const itemId = req.nextUrl.searchParams.get("itemId");
 
   if (!token || !itemId) {
-    return NextResponse.json({ error: "Missing token or itemId" }, { status: 400 });
+    return apiError("Missing token or itemId");
   }
 
   // Verify access token
@@ -34,12 +44,12 @@ export async function GET(req: NextRequest) {
     .limit(1);
 
   if (!msg) {
-    return NextResponse.json({ error: "Invalid token" }, { status: 403 });
+    return apiError("Invalid token", 403);
   }
 
   // Check expiration
   if (msg.accessTokenExpiresAt && msg.accessTokenExpiresAt < new Date()) {
-    return NextResponse.json({ error: "Token expired" }, { status: 403 });
+    return apiError("Token expired", 403);
   }
 
   // Verify the item is part of this message's content blocks
@@ -47,7 +57,7 @@ export async function GET(req: NextRequest) {
   const allowedIds = blocks.map((b) => b.content_item_id);
 
   if (!allowedIds.includes(itemId)) {
-    return NextResponse.json({ error: "Item not in message" }, { status: 403 });
+    return apiError("Item not in message", 403);
   }
 
   // Get content item URL (storagePath or url)
@@ -62,20 +72,30 @@ export async function GET(req: NextRequest) {
     .limit(1);
 
   if (!item) {
-    return NextResponse.json({ error: "Content not found" }, { status: 404 });
+    return apiError("Content not found", 404);
   }
 
   // Prefer storagePath (Vercel Blob private URL), fall back to url
   const fileUrl = item.storagePath || item.url;
   if (!fileUrl) {
-    return NextResponse.json({ error: "No file URL available" }, { status: 404 });
+    return apiError("No file URL available", 404);
   }
 
   // Proxy the file
   try {
-    const response = await fetch(fileUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000); // 30s timeout
+    const response = await fetch(fileUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+
     if (!response.ok) {
-      return NextResponse.json({ error: "Failed to fetch file" }, { status: 502 });
+      return apiError("Failed to fetch file", 502);
+    }
+
+    // Check content-length if available
+    const contentLength = response.headers.get("content-length");
+    if (contentLength && parseInt(contentLength) > MAX_PDF_SIZE) {
+      return apiError("File too large", 413);
     }
 
     const contentType = response.headers.get("content-type") ?? "application/pdf";
@@ -89,6 +109,6 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch {
-    return NextResponse.json({ error: "Failed to proxy file" }, { status: 502 });
+    return apiError("Failed to proxy file", 502);
   }
 }

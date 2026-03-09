@@ -67,6 +67,11 @@ export const bulkSendStatusEnum = pgEnum("bulk_send_status", [
   "failed",
 ]);
 
+export const campaignEnrollmentStatusEnum = pgEnum(
+  "campaign_enrollment_status",
+  ["active", "completed", "paused", "cancelled"]
+);
+
 // ── Organizations ──────────────────────────────────────────────────────────
 
 export const organizations = pgTable("organizations", {
@@ -328,6 +333,117 @@ export const bulkSends = pgTable(
   (table) => [index("bulk_sends_tenant_id_idx").on(table.tenantId)]
 );
 
+// ── Campaign Templates ────────────────────────────────────────────────────
+
+export type CampaignTemplateStep = {
+  stepNumber: number;
+  name: string;
+  delayDays: number;
+  contentItemIds: string[];
+  reminderEnabled: boolean;
+  maxReminders: number;
+  reminderIntervalHours: number;
+};
+
+export const campaignTemplates = pgTable(
+  "campaign_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => organizations.id)
+      .notNull(),
+    createdBy: uuid("created_by")
+      .references(() => users.id)
+      .notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").default(true).notNull(),
+    steps: jsonb("steps").notNull().$type<CampaignTemplateStep[]>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campaign_templates_tenant_id_idx").on(table.tenantId),
+  ]
+);
+
+// ── Campaign Enrollments ──────────────────────────────────────────────────
+
+export const campaignEnrollments = pgTable(
+  "campaign_enrollments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => organizations.id)
+      .notNull(),
+    templateId: uuid("template_id")
+      .references(() => campaignTemplates.id)
+      .notNull(),
+    recipientId: uuid("recipient_id")
+      .references(() => recipients.id)
+      .notNull(),
+    enrolledBy: uuid("enrolled_by")
+      .references(() => users.id)
+      .notNull(),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    status: campaignEnrollmentStatusEnum("status")
+      .default("active")
+      .notNull(),
+    currentStep: integer("current_step").default(1).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campaign_enrollments_template_recipient_idx").on(
+      table.templateId,
+      table.recipientId
+    ),
+    index("campaign_enrollments_tenant_id_idx").on(table.tenantId),
+    index("campaign_enrollments_template_id_idx").on(table.templateId),
+  ]
+);
+
+// ── Campaign Step Sends ───────────────────────────────────────────────────
+
+export const campaignStepSends = pgTable(
+  "campaign_step_sends",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => organizations.id)
+      .notNull(),
+    enrollmentId: uuid("enrollment_id")
+      .references(() => campaignEnrollments.id)
+      .notNull(),
+    stepNumber: integer("step_number").notNull(),
+    messageId: uuid("message_id")
+      .references(() => messages.id)
+      .notNull(),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campaign_step_sends_enrollment_id_idx").on(table.enrollmentId),
+    index("campaign_step_sends_tenant_id_idx").on(table.tenantId),
+  ]
+);
+
 // ── Folders ────────────────────────────────────────────────────────────────
 
 export const folders = pgTable(
@@ -345,6 +461,7 @@ export const folders = pgTable(
     isPublished: boolean("is_published").default(false).notNull(),
     publishedBy: uuid("published_by"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    sortOrder: integer("sort_order").default(0).notNull(),
     parentFolderId: uuid("parent_folder_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -360,6 +477,38 @@ export const folders = pgTable(
       table.ownerId,
       table.type
     ),
+  ]
+);
+
+// ── Folder Shares ─────────────────────────────────────────────────────────
+
+export const folderShares = pgTable(
+  "folder_shares",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => organizations.id)
+      .notNull(),
+    folderId: uuid("folder_id")
+      .references(() => folders.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id)
+      .notNull(),
+    sharedBy: uuid("shared_by")
+      .references(() => users.id)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("folder_shares_folder_user_idx").on(
+      table.folderId,
+      table.userId
+    ),
+    index("folder_shares_user_id_idx").on(table.userId),
+    index("folder_shares_tenant_id_idx").on(table.tenantId),
   ]
 );
 
@@ -417,6 +566,25 @@ export const auditLogs = pgTable(
     index("audit_logs_user_id_idx").on(table.userId),
     index("audit_logs_action_idx").on(table.action),
     index("audit_logs_occurred_at_idx").on(table.occurredAt),
+  ]
+);
+
+// ── Login Attempts (database-backed rate limiting) ────────────────────────
+
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ipAddress: text("ip_address").notNull(),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("login_attempts_ip_attempted_idx").on(
+      table.ipAddress,
+      table.attemptedAt
+    ),
   ]
 );
 

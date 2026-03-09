@@ -1,7 +1,14 @@
 import type { PgBoss, Job } from "pg-boss";
 import { db } from "@/lib/db";
-import { messages, messageEvents, recipients } from "@/drizzle/schema";
-import { eq } from "drizzle-orm";
+import {
+  messages,
+  messageEvents,
+  recipients,
+  campaignEnrollments,
+  campaignTemplates,
+  campaignStepSends,
+} from "@/drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { sendEmail } from "@/lib/delivery/email";
 import { sendSms } from "@/lib/delivery/sms";
 import {
@@ -9,7 +16,9 @@ import {
   type SendMessageJob,
   type SendReminderJob,
   type DeliveryRetryJob,
+  type ProcessCampaignStepJob,
 } from "./types";
+import type { CampaignTemplateStep } from "@/drizzle/schema";
 
 /**
  * Register all job workers on the given pg-boss instance.
@@ -41,6 +50,16 @@ export function registerWorkers(boss: PgBoss): void {
     async (jobs: Job<DeliveryRetryJob>[]) => {
       for (const job of jobs) {
         await handleDeliveryRetry(job);
+      }
+    }
+  );
+
+  boss.work<ProcessCampaignStepJob>(
+    QUEUE.PROCESS_CAMPAIGN_STEP,
+    { localConcurrency: 3 },
+    async (jobs: Job<ProcessCampaignStepJob>[]) => {
+      for (const job of jobs) {
+        await handleProcessCampaignStep(job);
       }
     }
   );
@@ -223,6 +242,138 @@ async function handleDeliveryRetry(job: Job<DeliveryRetryJob>) {
   await logEvent(messageId, tenantId, "queued", {
     retryAttempt: attempt,
   });
+}
+
+// ── Process Campaign Step Worker ──────────────────────────────────────────
+
+async function handleProcessCampaignStep(job: Job<ProcessCampaignStepJob>) {
+  const { enrollmentId, stepNumber, tenantId } = job.data;
+
+  // Load enrollment
+  const [enrollment] = await db
+    .select()
+    .from(campaignEnrollments)
+    .where(
+      and(
+        eq(campaignEnrollments.id, enrollmentId),
+        eq(campaignEnrollments.tenantId, tenantId)
+      )
+    )
+    .limit(1);
+
+  if (!enrollment) return;
+  if (enrollment.status !== "active") return; // paused or cancelled
+
+  // Load template
+  const [template] = await db
+    .select()
+    .from(campaignTemplates)
+    .where(eq(campaignTemplates.id, enrollment.templateId))
+    .limit(1);
+
+  if (!template || !template.isActive) return;
+
+  const steps = template.steps as CampaignTemplateStep[];
+  const step = steps.find((s) => s.stepNumber === stepNumber);
+  if (!step) return;
+
+  // Load recipient
+  const [recipient] = await db
+    .select()
+    .from(recipients)
+    .where(eq(recipients.id, enrollment.recipientId))
+    .limit(1);
+
+  if (!recipient || recipient.optedOut) {
+    // Cancel enrollment if recipient opted out
+    if (recipient?.optedOut) {
+      await db
+        .update(campaignEnrollments)
+        .set({
+          status: "cancelled",
+          cancelledAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(campaignEnrollments.id, enrollmentId));
+    }
+    return;
+  }
+
+  // Build content blocks from the step's content item IDs
+  const contentBlocks = step.contentItemIds.map((id, i) => ({
+    type: "content_item" as const,
+    content_item_id: id,
+    order: i,
+  }));
+
+  // Use the sendMessage action to create and deliver the message
+  // We import dynamically to avoid circular deps
+  const { sendMessageInternal } = await import("@/lib/actions/campaign-templates");
+
+  const { messageId } = await sendMessageInternal({
+    tenantId,
+    senderId: enrollment.enrolledBy,
+    recipientId: recipient.id,
+    recipientContact: recipient.contact,
+    contentBlocks,
+    deliveryChannel: recipient.contactType === "email" ? "email" : "sms",
+    reminders: step.reminderEnabled
+      ? {
+          enabled: true,
+          maxReminders: step.maxReminders,
+          intervalHours: step.reminderIntervalHours,
+        }
+      : undefined,
+  });
+
+  // Record the step send
+  await db.insert(campaignStepSends).values({
+    tenantId,
+    enrollmentId,
+    stepNumber,
+    messageId,
+    scheduledFor: new Date(),
+    sentAt: new Date(),
+  });
+
+  // Update enrollment progress
+  const isLastStep = stepNumber >= steps.length;
+  await db
+    .update(campaignEnrollments)
+    .set({
+      currentStep: stepNumber,
+      ...(isLastStep
+        ? { status: "completed" as const, completedAt: new Date() }
+        : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(campaignEnrollments.id, enrollmentId));
+
+  // Schedule next step if more remain
+  if (!isLastStep) {
+    const nextStep = steps.find((s) => s.stepNumber === stepNumber + 1);
+    if (nextStep) {
+      const delayDays = nextStep.delayDays - step.delayDays;
+      const delaySecs = Math.max(delayDays, 1) * 24 * 60 * 60;
+
+      const { getQueue } = await import("./queue");
+      const boss = await getQueue();
+      await boss.send(
+        QUEUE.PROCESS_CAMPAIGN_STEP,
+        {
+          enrollmentId,
+          stepNumber: stepNumber + 1,
+          tenantId,
+        } satisfies ProcessCampaignStepJob,
+        {
+          startAfter: delaySecs,
+          retryLimit: 3,
+          retryDelay: 60,
+          retryBackoff: true,
+        }
+      );
+    }
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

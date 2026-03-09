@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { messages, messageEvents } from "@/drizzle/schema";
 import { eq, sql } from "drizzle-orm";
 import crypto from "crypto";
+import { apiError } from "@/lib/utils/api";
 
 /**
  * Mailgun event webhook.
@@ -15,23 +16,26 @@ import crypto from "crypto";
 export async function POST(request: NextRequest) {
   const body = await request.json();
 
-  // Verify webhook signature in production
+  // Issue #5: Verify webhook signature in production (fail closed)
   if (process.env.NODE_ENV === "production") {
     const signingKey = process.env.MAILGUN_WEBHOOK_SIGNING_KEY;
-    if (signingKey) {
-      const { timestamp, token, signature } = body.signature ?? {};
-      if (!timestamp || !token || !signature) {
-        return NextResponse.json({ error: "Missing signature" }, { status: 403 });
-      }
+    if (!signingKey) {
+      console.error("[mailgun-webhook] MAILGUN_WEBHOOK_SIGNING_KEY is not set");
+      return apiError("Webhook not configured", 500);
+    }
 
-      const hmac = crypto
-        .createHmac("sha256", signingKey)
-        .update(timestamp + token)
-        .digest("hex");
+    const { timestamp, token, signature } = body.signature ?? {};
+    if (!timestamp || !token || !signature) {
+      return apiError("Missing signature", 403);
+    }
 
-      if (hmac !== signature) {
-        return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
-      }
+    const hmac = crypto
+      .createHmac("sha256", signingKey)
+      .update(timestamp + token)
+      .digest("hex");
+
+    if (hmac !== signature) {
+      return apiError("Invalid signature", 403);
     }
   }
 

@@ -31,11 +31,13 @@ import {
   UserCog,
   Activity,
   HelpCircle,
+  CalendarClock,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", permission: "library.view" as const, icon: LayoutDashboard },
   { label: "Library", href: "/library", permission: "library.view" as const, icon: Library },
+  { label: "Campaigns", href: "/campaigns/templates", permission: "send.create" as const, icon: CalendarClock },
   { label: "Tracking", href: "/tracking", permission: "send.create" as const, icon: Activity },
   { label: "Analytics", href: "/analytics", permission: "analytics.personal" as const, icon: BarChart3 },
   { label: "How-To Guide", href: "/guide", permission: "library.view" as const, icon: HelpCircle },

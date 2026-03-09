@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { toggleFavorite as toggleFavoriteAction } from "@/lib/actions/library";
+import { toggleFavorite as toggleFavoriteAction, reorderFolders as reorderFoldersAction } from "@/lib/actions/library";
 
 /** Mock org content item for client-side demo */
 export interface OrgContentItem {
@@ -47,7 +47,7 @@ interface LibraryState {
   addOrgContent: (item: Omit<OrgContentItem, "id" | "createdAt" | "isFavorite">) => void;
   deleteOrgContent: (id: string) => void;
   bumpContentVersion: () => void;
-  toggleFolderType: (id: string, newType: "personal" | "team") => void;
+  reorderFolders: (reorderedFolders: LibraryFolder[]) => void;
 }
 
 // Folders and content are loaded from the database on mount.
@@ -154,10 +154,8 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       orgContent: state.orgContent.filter((c) => c.id !== id),
     })),
 
-  toggleFolderType: (id, newType) =>
-    set((state) => ({
-      folders: state.folders.map((f) =>
-        f.id === id ? { ...f, type: newType } : f
-      ),
-    })),
+  reorderFolders: (reorderedFolders) => {
+    set({ folders: reorderedFolders });
+    reorderFoldersAction(reorderedFolders.map((f) => f.id)).catch(() => {});
+  },
 }));

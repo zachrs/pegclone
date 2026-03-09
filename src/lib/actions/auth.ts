@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import type { UserRole } from "@/lib/db/types";
+import { getBaseUrl } from "@/lib/utils/url";
 
 export interface PegSession {
   user: {
@@ -39,8 +40,8 @@ export async function getSession(): Promise<PegSession | null> {
     // Auth provider unavailable
   }
 
-  // Dev fallback: use the first active user
-  if (process.env.NODE_ENV === "development") {
+  // Issue #20: Dev fallback requires explicit opt-in via DEV_AUTO_LOGIN
+  if (process.env.NODE_ENV === "development" && process.env.DEV_AUTO_LOGIN === "true") {
     return getDevSession();
   }
 
@@ -54,6 +55,19 @@ export async function requireSession(): Promise<PegSession> {
   const session = await getSession();
   if (!session) {
     throw new Error("Unauthorized");
+  }
+  return session;
+}
+
+/**
+ * Issue #3: Require an authenticated session with completed MFA.
+ * Throws if not logged in or MFA is still pending.
+ * Use this for sensitive operations (admin actions, sending, etc.).
+ */
+export async function requireCompletedMfa(): Promise<PegSession> {
+  const session = await requireSession();
+  if (session.user.mfaPending) {
+    throw new Error("MFA verification required");
   }
   return session;
 }
@@ -297,7 +311,7 @@ export async function requestPasswordReset(
     .set({ resetTokenHash: tokenHash, resetExpiresAt: expiresAt, updatedAt: new Date() })
     .where(eq(users.id, user.id));
 
-  const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const baseUrl = getBaseUrl();
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
   const [org] = await db

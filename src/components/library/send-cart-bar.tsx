@@ -126,7 +126,7 @@ function SendDialog({
   }, [open]);
 
   const isEmail = contact.includes("@");
-  const isPhone = /^\+?\d[\d\s()-]{6,}$/.test(contact.trim());
+  const isPhone = /^\+?[1-9]\d{1,14}$/.test(contact.trim().replace(/[\s()-]/g, ""));
   const isValidContact = contact.trim().length > 0 && (isEmail || isPhone);
 
   const contentBlocks = items.map((item, i) => ({
@@ -142,7 +142,12 @@ function SendDialog({
     if (isExcel) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const result = e.target?.result;
+        if (!result || typeof result === "string") {
+          toast.error("Failed to read file");
+          return;
+        }
+        const data = new Uint8Array(result);
         const workbook = XLSX.read(data, { type: "array" });
         const sheetName = workbook.SheetNames[0];
         if (!sheetName) return;
@@ -151,14 +156,20 @@ function SendDialog({
         const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
         setBulkPreview(rows.map((r) => r.map(String)));
       };
+      reader.onerror = () => toast.error("Failed to read file");
       reader.readAsArrayBuffer(file);
     } else {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const text = e.target?.result as string;
+        const text = e.target?.result;
+        if (typeof text !== "string") {
+          toast.error("Failed to read file");
+          return;
+        }
         const lines = text.trim().split("\n");
         setBulkPreview(lines.map((l) => l.split(",").map((c) => c.trim())));
       };
+      reader.onerror = () => toast.error("Failed to read file");
       reader.readAsText(file);
     }
   }, []);
@@ -202,8 +213,8 @@ function SendDialog({
         const appUrl = window.location.origin;
         const viewerUrl = `${appUrl}/m/${result.accessToken}`;
         setQrViewerUrl(viewerUrl);
-        const QRCode = (await import("qrcode")).default;
-        const dataUrl = await QRCode.toDataURL(viewerUrl, { width: 300, margin: 2 });
+        const { generateQRDataUrl } = await import("@/lib/utils/qr");
+        const dataUrl = await generateQRDataUrl(viewerUrl);
         setQrDataUrl(dataUrl);
         setSentInfo({ count: 1, channel: "QR Code", qr: true });
       } else {
@@ -266,11 +277,14 @@ function SendDialog({
                     a.click();
                   }}>Download</Button>
                   <Button variant="outline" size="sm" onClick={() => {
-                    const w = window.open();
+                    const html = `<!DOCTYPE html><html><body><img src="${qrDataUrl.replace(/"/g, "&quot;")}" /></body></html>`;
+                    const blob = new Blob([html], { type: "text/html" });
+                    const url = URL.createObjectURL(blob);
+                    const w = window.open(url);
                     if (w) {
-                      w.document.write(`<img src="${qrDataUrl}" />`);
-                      w.document.close();
-                      w.print();
+                      w.onload = () => { w.print(); URL.revokeObjectURL(url); };
+                    } else {
+                      URL.revokeObjectURL(url);
                     }
                   }}>Print</Button>
                 </div>
@@ -304,7 +318,7 @@ function SendDialog({
               const isActive = step === stepNum;
               const isComplete = step > stepNum;
               return (
-                <div key={i} className="relative flex flex-col items-center gap-1.5">
+                <div key={label} className="relative flex flex-col items-center gap-1.5">
                   <button
                     className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold transition-all ${
                       isActive

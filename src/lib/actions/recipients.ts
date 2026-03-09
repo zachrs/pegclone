@@ -5,6 +5,7 @@ import { messages, recipients } from "@/drizzle/schema";
 import { eq, and, desc, sql, ilike, ne } from "drizzle-orm";
 import { requireSession } from "./auth";
 import { withTenant } from "@/lib/tenancy";
+import { escapeLike } from "@/lib/utils/search";
 
 export interface RecipientSummary {
   contact: string;
@@ -31,7 +32,7 @@ export async function getRecipients(search?: string, page = 1, pageSize = 50): P
   const offset = (page - 1) * pageSize;
 
   const searchClause = search
-    ? sql`and r.contact ilike ${"%" + search + "%"}`
+    ? sql`and r.contact ilike ${"%" + escapeLike(search) + "%"}`
     : sql``;
 
   // Single query with aggregated stats — replaces N+1
@@ -103,7 +104,7 @@ export async function searchRecipients(query: string) {
     .where(
       and(
         tenant.eq(recipients.tenantId),
-        sql`(${recipients.contact} ILIKE ${"%" + query + "%"} OR ${recipients.firstName} ILIKE ${"%" + query + "%"} OR ${recipients.lastName} ILIKE ${"%" + query + "%"})`,
+        sql`(${recipients.contact} ILIKE ${"%" + escapeLike(query) + "%"} OR ${recipients.firstName} ILIKE ${"%" + escapeLike(query) + "%"} OR ${recipients.lastName} ILIKE ${"%" + escapeLike(query) + "%"})`,
       )
     )
     .limit(10);
