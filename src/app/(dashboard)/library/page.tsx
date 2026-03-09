@@ -95,7 +95,7 @@ export default function LibraryPage() {
     const timer = setTimeout(() => {
       getSystemContent(searchQuery)
         .then((data) => setSystemContent(data as Array<{ id: string; title: string; source: string; sourceName?: string; type: "pdf" | "link"; url: string | null; createdAt: Date }>))
-        .catch(() => {});
+        .catch((err) => console.error("[library] System content search failed:", err));
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery, activeTab]);
