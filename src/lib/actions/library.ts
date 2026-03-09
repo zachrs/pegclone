@@ -256,36 +256,46 @@ export async function addOrgContent(params: {
   storagePath?: string;
   description?: string;
   folderId?: string;
-}) {
-  const session = await requireSession();
+}): Promise<{ success: boolean; error?: string; id?: string }> {
+  try {
+    const session = await requireSession();
 
-  const [item] = await db
-    .insert(contentItems)
-    .values({
-      tenantId: session.user.tenantId,
-      createdBy: session.user.id,
-      source: "org_upload",
-      title: params.title,
-      description: params.description ?? null,
-      type: params.type,
-      url: params.url,
-      storagePath: params.storagePath ?? null,
-      isActive: true,
-    })
-    .returning();
+    const [item] = await db
+      .insert(contentItems)
+      .values({
+        tenantId: session.user.tenantId,
+        createdBy: session.user.id,
+        source: "org_upload",
+        title: params.title,
+        description: params.description ?? null,
+        type: params.type,
+        url: params.url,
+        storagePath: params.storagePath ?? null,
+        isActive: true,
+      })
+      .returning();
 
-  // Fix #5: If a folder was selected, add the item to it
-  if (item && params.folderId) {
-    await db.insert(folderItems).values({
-      tenantId: session.user.tenantId,
-      folderId: params.folderId,
-      contentItemId: item.id,
-      addedBy: session.user.id,
-      order: 0,
-    }).onConflictDoNothing();
+    if (!item) {
+      return { success: false, error: "Failed to create content item" };
+    }
+
+    // Fix #5: If a folder was selected, add the item to it
+    if (params.folderId) {
+      await db.insert(folderItems).values({
+        tenantId: session.user.tenantId,
+        folderId: params.folderId,
+        contentItemId: item.id,
+        addedBy: session.user.id,
+        order: 0,
+      }).onConflictDoNothing();
+    }
+
+    return { success: true, id: item.id };
+  } catch (err) {
+    console.error("[library] addOrgContent failed:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
   }
-
-  return item;
 }
 
 export async function deleteOrgContent(id: string) {
