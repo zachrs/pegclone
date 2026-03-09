@@ -205,7 +205,6 @@ export function SendWizard() {
         setSentInfo({ count: results.length, channel: "bulk", qr: false });
       }
       setSent(true);
-      clear();
       toast.success("Message sent successfully");
     } catch {
       toast.error("Failed to send message");
@@ -215,6 +214,7 @@ export function SendWizard() {
   };
 
   const resetAll = () => {
+    clear();
     setSent(false);
     setStep(1);
     setContact("");

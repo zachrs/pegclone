@@ -58,7 +58,11 @@ export function SendCartBar() {
 
       <SendDialog
         open={sendDialogOpen}
-        onOpenChange={setSendDialogOpen}
+        onOpenChange={(open) => {
+          setSendDialogOpen(open);
+          // Clear cart when dialog is dismissed after a successful send
+          if (!open) clear();
+        }}
         items={items}
       />
     </>
@@ -81,7 +85,6 @@ function SendDialog({
   onOpenChange: (open: boolean) => void;
   items: CartItem[];
 }) {
-  const { clear } = useSendCart();
   const [step, setStep] = useState<SendStep>(1);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -245,7 +248,6 @@ function SendDialog({
         setSentInfo({ count: results.length, channel: "bulk", qr: false });
       }
       setSent(true);
-      clear();
       toast.success("Message sent successfully");
     } catch {
       toast.error("Failed to send message");

@@ -9,6 +9,7 @@ import { FolderSidebar } from "@/components/library/folder-sidebar";
 import { SendCartBar } from "@/components/library/send-cart-bar";
 import { AddContentDialog } from "@/components/library/add-content-dialog";
 import { useLibraryStore } from "@/lib/hooks/use-library-store";
+import { useSendCart } from "@/lib/hooks/use-send-cart";
 import { getOrgContent, getSystemContent, getFolders, getFolderItems, getFavoriteIds, getFavoritedContent } from "@/lib/actions/library";
 import { getOrgInfo } from "@/lib/actions/auth";
 
@@ -22,6 +23,8 @@ export default function LibraryPage() {
     favorites,
     contentVersion,
   } = useLibraryStore();
+
+  const cartItemCount = useSendCart((s) => s.items.length);
 
   // DB-backed state
   const [orgContent, setOrgContent] = useState<Array<{ id: string; title: string; source: string; type: "pdf" | "link"; url: string | null; createdAt: Date; uploadedBy: string | null }>>([]);
@@ -229,7 +232,7 @@ export default function LibraryPage() {
           <FolderSidebar />
         </aside>
 
-        <div className="flex flex-1 flex-col gap-4 overflow-auto p-6 animate-fade-in-up">
+        <div className={`flex flex-1 flex-col gap-4 overflow-auto p-6 animate-fade-in-up ${cartItemCount > 0 ? "pb-20" : ""}`}>
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">
               {activeTab === "system" ? "PEG Library" : activeFolderObj?.name ?? "My Materials"}
