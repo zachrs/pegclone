@@ -319,10 +319,11 @@ function SendDialog({
 
         {/* Mini stepper */}
         <div className="mb-4">
-          <div className="relative flex items-center justify-between">
-            <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 bg-border" />
+          <div className="relative flex items-start justify-between">
+            {/* Lines anchored to vertical center of the 28px circles (14px from top) */}
+            <div className="absolute left-0 right-0 top-[14px] h-0.5 -translate-y-1/2 bg-border" />
             <div
-              className="absolute left-0 top-1/2 h-0.5 -translate-y-1/2 bg-primary transition-all duration-500"
+              className="absolute left-0 top-[14px] h-0.5 -translate-y-1/2 bg-primary transition-all duration-500"
               style={{ width: `${((step - 1) / (STEP_LABELS.length - 1)) * 100}%` }}
             />
             {STEP_LABELS.map((label, i) => {
