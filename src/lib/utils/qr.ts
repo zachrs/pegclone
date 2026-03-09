@@ -16,7 +16,9 @@ export async function generateQRDataUrl(
   url: string,
   options?: { width?: number; margin?: number }
 ): Promise<string> {
-  const QRCode = await getQRCode();
+  const mod = await getQRCode();
+  // Handle both ESM default export and direct CJS module
+  const QRCode = ("default" in mod ? mod.default : mod) as typeof import("qrcode");
   return QRCode.toDataURL(url, {
     width: options?.width ?? 300,
     margin: options?.margin ?? 2,

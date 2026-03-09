@@ -37,31 +37,30 @@ export function ViewerContent({
   const accent = message.org.secondaryColor ?? color;
   const [optedOut, setOptedOut] = useState(false);
 
-  const handleView = async (itemId: string, url: string, type: "pdf" | "link") => {
+  const handleView = (itemId: string, url: string, type: "pdf" | "link") => {
     setViewedItems((prev) => new Set(prev).add(itemId));
 
-    // Log item_viewed event via API
-    try {
-      await fetch("/api/viewer/event", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accessToken: message.accessToken,
-          contentItemId: itemId,
-          eventType: "item_viewed",
-        }),
-      });
-    } catch {
-      // Non-critical, don't block the user
-    }
-
-    // Fix #22: Use PDF proxy for PDFs (token-gated access), direct URL for links
+    // Open the content FIRST (synchronously) so the browser treats it as a
+    // direct user-gesture — otherwise popup blockers will prevent the new tab.
     if (type === "pdf") {
       const proxyUrl = `/api/viewer/pdf?token=${encodeURIComponent(message.accessToken)}&itemId=${encodeURIComponent(itemId)}`;
       window.open(proxyUrl, "_blank", "noopener");
     } else if (url) {
       window.open(url, "_blank", "noopener");
     }
+
+    // Log item_viewed event via API (fire-and-forget, non-blocking)
+    fetch("/api/viewer/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accessToken: message.accessToken,
+        contentItemId: itemId,
+        eventType: "item_viewed",
+      }),
+    }).catch(() => {
+      // Non-critical, don't block the user
+    });
   };
 
   const handleOptOut = async () => {

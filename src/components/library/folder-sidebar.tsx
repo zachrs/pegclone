@@ -165,15 +165,15 @@ export function FolderSidebar() {
           <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Shared with me
           </p>
-          {sharedWithMe.map((folder) => (
-            <FolderButton
-              key={folder.id}
-              folder={folder}
-              isActive={activeTab === "org" && activeFolder === folder.id}
-              onClick={() => { setActiveTab("org"); setActiveFolder(folder.id); }}
-              shared
-            />
-          ))}
+          <DraggableFolderList
+            folders={sharedWithMe}
+            activeFolder={activeTab === "org" ? activeFolder : null}
+            onSelect={(id) => { setActiveTab("org"); setActiveFolder(id); }}
+            onReorder={(reordered) => {
+              reorderFolders([...favoritesFolder, ...myFolders, ...reordered]);
+            }}
+            shared
+          />
         </>
       )}
 
@@ -188,11 +188,13 @@ function DraggableFolderList({
   activeFolder,
   onSelect,
   onReorder,
+  shared = false,
 }: {
   folders: LibraryFolder[];
   activeFolder: string | null;
   onSelect: (id: string) => void;
   onReorder: (folders: LibraryFolder[]) => void;
+  shared?: boolean;
 }) {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
@@ -275,6 +277,7 @@ function DraggableFolderList({
             isActive={activeFolder === folder.id}
             onClick={() => onSelect(folder.id)}
             draggable
+            shared={shared}
           />
         </div>
       ))}
@@ -446,16 +449,17 @@ function isMyUploadsFolder(folder: LibraryFolder) {
   return folder.id === "my-uploads" || folder.name.toLowerCase() === "my uploads" || folder.name.toLowerCase() === "my materials";
 }
 
-function getIcon(folder: LibraryFolder) {
+function getIcon(folder: LibraryFolder, shared?: boolean) {
   if (folder.type === "favorites") return Heart;
   if (isMyUploadsFolder(folder)) return Upload;
+  if (shared || (folder.shareCount && folder.shareCount > 0)) return Users;
   return Folder;
 }
 
 // ── Folder button ─────────────────────────────────────────────────────
 
 function FolderButton({ folder, isActive, onClick, draggable = false, shared = false }: { folder: LibraryFolder; isActive: boolean; onClick: () => void; draggable?: boolean; shared?: boolean }) {
-  const Icon = getIcon(folder);
+  const Icon = getIcon(folder, shared);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -529,7 +533,7 @@ function FolderButton({ folder, isActive, onClick, draggable = false, shared = f
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )}
       >
-        {shared ? <Users className="h-4 w-4 shrink-0" /> : <Icon className="h-4 w-4 shrink-0" />}
+        <Icon className="h-4 w-4 shrink-0" />
         <span className="truncate">{folder.name}</span>
       </button>
       {(canRename || canDelete || canShare) && (

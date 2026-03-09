@@ -58,7 +58,11 @@ export function SendCartBar() {
 
       <SendDialog
         open={sendDialogOpen}
-        onOpenChange={setSendDialogOpen}
+        onOpenChange={(open) => {
+          setSendDialogOpen(open);
+          // Clear cart when dialog is dismissed after a successful send
+          if (!open) clear();
+        }}
         items={items}
       />
     </>
@@ -81,7 +85,6 @@ function SendDialog({
   onOpenChange: (open: boolean) => void;
   items: CartItem[];
 }) {
-  const { clear } = useSendCart();
   const [step, setStep] = useState<SendStep>(1);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -177,6 +180,16 @@ function SendDialog({
   // Auto-detect delivery channel from contact type
   const detectedChannel: "sms" | "email" = isEmail ? "email" : "sms";
 
+  // QR code skips the Schedule step (step 2)
+  const nextStep = (current: SendStep): SendStep => {
+    if (current === 1 && mode === "qr_code") return 3;
+    return (current + 1) as SendStep;
+  };
+  const prevStep = (current: SendStep): SendStep => {
+    if (current === 3 && mode === "qr_code") return 1;
+    return (current - 1) as SendStep;
+  };
+
   // Validation
   const canProceed = () => {
     if (step === 1) {
@@ -235,7 +248,6 @@ function SendDialog({
         setSentInfo({ count: results.length, channel: "bulk", qr: false });
       }
       setSent(true);
-      clear();
       toast.success("Message sent successfully");
     } catch {
       toast.error("Failed to send message");
@@ -327,7 +339,7 @@ function SendDialog({
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-muted-foreground/30 bg-background text-muted-foreground"
                     }`}
-                    onClick={() => { if (isComplete) setStep(stepNum); }}
+                    onClick={() => { if (isComplete && !(stepNum === 2 && mode === "qr_code")) setStep(stepNum); }}
                     disabled={!isComplete && !isActive}
                   >
                     {isComplete ? <Check className="h-3 w-3" /> : stepNum}
@@ -653,7 +665,7 @@ function SendDialog({
         <div className="mt-4 flex items-center justify-between border-t pt-4">
           <div>
             {step > 1 ? (
-              <Button variant="outline" size="sm" onClick={() => setStep((step - 1) as SendStep)} className="gap-1.5">
+              <Button variant="outline" size="sm" onClick={() => setStep(prevStep(step))} className="gap-1.5">
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Back
               </Button>
@@ -664,10 +676,10 @@ function SendDialog({
             )}
           </div>
           <div>
-            {step < 3 ? (
+            {(step < 3 && !(step === 2 && mode === "qr_code")) ? (
               <Button
                 size="sm"
-                onClick={() => setStep((step + 1) as SendStep)}
+                onClick={() => setStep(nextStep(step))}
                 disabled={!canProceed()}
                 className="gap-1.5"
               >
@@ -682,7 +694,7 @@ function SendDialog({
                 className="gap-1.5"
               >
                 <Send className="h-3.5 w-3.5" />
-                {sending ? "Sending..." : scheduleMode === "later" ? "Schedule Send" : "Send Now"}
+                {sending ? "Sending..." : mode === "qr_code" ? "Generate QR Code" : scheduleMode === "later" ? "Schedule Send" : "Send Now"}
               </Button>
             )}
           </div>

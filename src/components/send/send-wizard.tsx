@@ -205,7 +205,6 @@ export function SendWizard() {
         setSentInfo({ count: results.length, channel: "bulk", qr: false });
       }
       setSent(true);
-      clear();
       toast.success("Message sent successfully");
     } catch {
       toast.error("Failed to send message");
@@ -215,6 +214,7 @@ export function SendWizard() {
   };
 
   const resetAll = () => {
+    clear();
     setSent(false);
     setStep(1);
     setContact("");
@@ -300,6 +300,16 @@ export function SendWizard() {
   }
 
   // ── Stepper ────────────────────────────────────────────────────────
+  // QR code skips the Schedule step (step 3)
+  const nextStep = (current: Step): Step => {
+    if (current === 2 && mode === "qr_code") return 4;
+    return (current + 1) as Step;
+  };
+  const prevStep = (current: Step): Step => {
+    if (current === 4 && mode === "qr_code") return 2;
+    return (current - 1) as Step;
+  };
+
   const canProceed = () => {
     if (step === 1) return orderedItems.length > 0;
     if (step === 2) {
@@ -331,7 +341,7 @@ export function SendWizard() {
                 <button
                   key={label}
                   className="flex flex-col items-center gap-2"
-                  onClick={() => { if (isComplete) setStep(stepNum); }}
+                  onClick={() => { if (isComplete && !(stepNum === 3 && mode === "qr_code")) setStep(stepNum); }}
                   disabled={!isComplete && !isActive}
                 >
                   <div
@@ -782,7 +792,7 @@ export function SendWizard() {
       <div className="mt-8 flex items-center justify-between border-t pt-4">
         <div>
           {step > 1 && (
-            <Button variant="outline" onClick={() => setStep((step - 1) as Step)}>
+            <Button variant="outline" onClick={() => setStep(prevStep(step))}>
               Back
             </Button>
           )}
@@ -794,9 +804,9 @@ export function SendWizard() {
           )}
         </div>
         <div>
-          {step < 4 ? (
+          {(step < 4 && !(step === 3 && mode === "qr_code")) ? (
             <Button
-              onClick={() => setStep((step + 1) as Step)}
+              onClick={() => setStep(nextStep(step))}
               disabled={!canProceed()}
             >
               Continue
@@ -806,7 +816,7 @@ export function SendWizard() {
               onClick={handleSend}
               disabled={sending}
             >
-              {sending ? "Sending..." : scheduleMode === "later" ? "Schedule Send" : "Send Now"}
+              {sending ? "Sending..." : mode === "qr_code" ? "Generate QR Code" : scheduleMode === "later" ? "Schedule Send" : "Send Now"}
             </Button>
           )}
         </div>

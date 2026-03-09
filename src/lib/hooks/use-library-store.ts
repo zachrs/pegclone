@@ -22,6 +22,7 @@ export interface LibraryFolder {
   type: "personal" | "team" | "favorites";
   ownerId?: string;
   icon?: string;
+  shareCount?: number;
 }
 
 export type ViewMode = "grid" | "list";

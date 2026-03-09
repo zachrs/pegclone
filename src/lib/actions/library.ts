@@ -279,7 +279,21 @@ export async function getFolders() {
     );
 
   return db
-    .select()
+    .select({
+      id: folders.id,
+      tenantId: folders.tenantId,
+      ownerId: folders.ownerId,
+      name: folders.name,
+      type: folders.type,
+      isPublished: folders.isPublished,
+      publishedBy: folders.publishedBy,
+      publishedAt: folders.publishedAt,
+      sortOrder: folders.sortOrder,
+      parentFolderId: folders.parentFolderId,
+      createdAt: folders.createdAt,
+      updatedAt: folders.updatedAt,
+      shareCount: sql<number>`(SELECT count(*)::int FROM folder_shares WHERE folder_shares.folder_id = ${folders.id})`,
+    })
     .from(folders)
     .where(
       and(
