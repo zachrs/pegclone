@@ -50,7 +50,10 @@ export async function getSystemContent(query: string) {
   const algoliaApiKey = process.env.ALGOLIA_SEARCH_API_KEY;
   const algoliaIndex = process.env.ALGOLIA_INDEX_NAME;
 
-  if (algoliaAppId && algoliaApiKey && algoliaIndex) {
+  const hasRealAlgolia = algoliaAppId && algoliaApiKey && algoliaIndex
+    && algoliaAppId !== "stub" && algoliaApiKey !== "stub";
+
+  if (hasRealAlgolia) {
     try {
       const { liteClient } = await import("algoliasearch/lite");
       const client = liteClient(algoliaAppId, algoliaApiKey);
@@ -86,6 +89,27 @@ export async function getSystemContent(query: string) {
     } catch (err) {
       console.warn("[library] Algolia search failed, falling back to Postgres:", err);
     }
+  }
+
+  // When Algolia isn't configured, use mock data for development
+  if (!hasRealAlgolia) {
+    const { searchSystemLibrary } = await import("@/lib/algolia");
+    const result = await searchSystemLibrary(query, { hitsPerPage: 50 });
+    return result.hits.map((hit) => ({
+      id: hit.objectID,
+      title: hit.title,
+      source: "system_library" as const,
+      sourceName: hit.source,
+      description: hit.description,
+      type: "link" as const,
+      url: hit.url,
+      storagePath: null,
+      isActive: true,
+      tenantId: null,
+      algoliaObjectId: hit.objectID,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
   }
 
   // Fallback: search system_library content in Postgres
