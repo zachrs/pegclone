@@ -218,3 +218,11 @@ CREATE TABLE IF NOT EXISTS mfa_codes (
 );
 CREATE INDEX IF NOT EXISTS mfa_codes_user_id_idx ON mfa_codes(user_id);
 CREATE INDEX IF NOT EXISTS mfa_codes_user_expires_idx ON mfa_codes(user_id, expires_at);
+
+-- Login Attempts (database-backed rate limiting)
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ip_address TEXT NOT NULL,
+  attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS login_attempts_ip_attempted_idx ON login_attempts(ip_address, attempted_at);
