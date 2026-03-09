@@ -164,13 +164,11 @@ async function seed() {
   // ── Folders ───────────────────────────────────────────────────────────
   const favoritesId = uuid();
   const myUploadsId = uuid();
-  const teamMaterialsId = uuid();
   const speechTherapyId = uuid();
 
   await db.insert(schema.folders).values([
     { id: favoritesId, tenantId: acmeId, ownerId: providerSarahId, name: "Favorites", type: "favorites" },
     { id: myUploadsId, tenantId: acmeId, ownerId: providerSarahId, name: "My Uploads", type: "personal" },
-    { id: teamMaterialsId, tenantId: acmeId, ownerId: adminJaneId, name: "Team Materials", type: "team", isPublished: true, publishedBy: adminJaneId, publishedAt: new Date("2025-07-01") },
     { id: speechTherapyId, tenantId: acmeId, ownerId: providerSarahId, name: "Speech Therapy", type: "personal" },
   ]);
 
@@ -178,7 +176,6 @@ async function seed() {
   await db.insert(schema.folderItems).values([
     { tenantId: acmeId, folderId: myUploadsId, contentItemId: contentIds[0]!, addedBy: providerSarahId, order: 0 },
     { tenantId: acmeId, folderId: myUploadsId, contentItemId: contentIds[2]!, addedBy: providerSarahId, order: 1 },
-    { tenantId: acmeId, folderId: teamMaterialsId, contentItemId: contentIds[1]!, addedBy: adminJaneId, order: 0 },
     { tenantId: acmeId, folderId: favoritesId, contentItemId: contentIds[2]!, addedBy: providerSarahId, order: 0 },
   ]);
   console.log("  Folders created");

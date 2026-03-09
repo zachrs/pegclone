@@ -452,7 +452,8 @@ function isMyUploadsFolder(folder: LibraryFolder) {
 function getIcon(folder: LibraryFolder, shared?: boolean) {
   if (folder.type === "favorites") return Heart;
   if (isMyUploadsFolder(folder)) return Upload;
-  if (shared || (folder.shareCount && folder.shareCount > 0)) return Users;
+  if (shared) return Users;
+  if (folder.shareCount && folder.shareCount > 0) return Share2;
   return Folder;
 }
 
