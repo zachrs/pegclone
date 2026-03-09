@@ -83,7 +83,7 @@ export function AddContentDialog() {
 }
 
 function AddLinkForm({ onClose }: { onClose: () => void }) {
-  const { addOrgContent, folders } = useLibraryStore();
+  const { folders } = useLibraryStore();
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [folderId, setFolderId] = useState<string>("");
@@ -94,27 +94,22 @@ function AddLinkForm({ onClose }: { onClose: () => void }) {
     if (!url.trim()) { toast.error("Please enter a URL"); return; }
     setSaving(true);
     try {
-      // Save to database (fix #5: pass folderId)
       await addOrgContentAction({
         title: title.trim(),
         type: "link",
         url: url.trim(),
         folderId: folderId || undefined,
       });
-    } catch {
-      // DB save failed, fall back to local store
+      // Bump contentVersion to trigger re-fetch from DB
+      useLibraryStore.getState().bumpContentVersion();
+      toast.success("Link added to library");
+      onClose();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to add link";
+      toast.error(msg);
+    } finally {
+      setSaving(false);
     }
-    // Always update local Zustand store for UI feedback
-    addOrgContent({
-      title: title.trim(),
-      source: "My Uploads",
-      type: "link",
-      url: url.trim(),
-      folderId: folderId || undefined,
-    });
-    toast.success("Link added to library");
-    setSaving(false);
-    onClose();
   };
 
   const personalFolders = folders.filter(
@@ -173,7 +168,7 @@ function AddLinkForm({ onClose }: { onClose: () => void }) {
 }
 
 function UploadPdfForm({ onClose }: { onClose: () => void }) {
-  const { addOrgContent, folders } = useLibraryStore();
+  const { folders } = useLibraryStore();
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [folderId, setFolderId] = useState<string>("");
@@ -216,29 +211,19 @@ function UploadPdfForm({ onClose }: { onClose: () => void }) {
       const { url, pathname } = json.data ?? json;
       setProgress(85);
 
-      // 2. Save content item to database (fix #5: pass folderId)
-      try {
-        await addOrgContentAction({
-          title: title.trim(),
-          type: "pdf",
-          url,
-          storagePath: pathname,
-          folderId: folderId || undefined,
-        });
-      } catch {
-        // DB save failed, fall back to local store
-      }
+      // 2. Save content item to database
+      await addOrgContentAction({
+        title: title.trim(),
+        type: "pdf",
+        url,
+        storagePath: pathname,
+        folderId: folderId || undefined,
+      });
 
       setProgress(100);
 
-      // 3. Update local Zustand store
-      addOrgContent({
-        title: title.trim(),
-        source: "My Uploads",
-        type: "pdf",
-        url,
-        folderId: folderId || undefined,
-      });
+      // 3. Bump contentVersion to trigger re-fetch from DB
+      useLibraryStore.getState().bumpContentVersion();
 
       toast.success("PDF uploaded to library");
       onClose();

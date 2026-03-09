@@ -50,7 +50,10 @@ export async function getSystemContent(query: string) {
   const algoliaApiKey = process.env.ALGOLIA_SEARCH_API_KEY;
   const algoliaIndex = process.env.ALGOLIA_INDEX_NAME;
 
-  if (algoliaAppId && algoliaApiKey && algoliaIndex) {
+  const hasRealAlgolia = algoliaAppId && algoliaApiKey && algoliaIndex
+    && algoliaAppId !== "stub" && algoliaApiKey !== "stub";
+
+  if (hasRealAlgolia) {
     try {
       const { liteClient } = await import("algoliasearch/lite");
       const client = liteClient(algoliaAppId, algoliaApiKey);
@@ -61,31 +64,65 @@ export async function getSystemContent(query: string) {
       if (searchResult && "hits" in searchResult) {
         const hits = searchResult.hits as Array<Record<string, unknown>>;
 
-        // Ensure each Algolia item exists in the DB with its URL so that
-        // downstream flows (send, viewer) can look them up by UUID.
-        const dbItems = await ensureSystemLibraryItems(
-          hits.map((hit) => ({
-            algoliaObjectId: String(hit.objectID ?? ""),
-            title: String(hit.title ?? ""),
-            type: (hit.type === "pdf" ? "pdf" : "link") as "pdf" | "link",
-            url: hit.url ? String(hit.url) : null,
-            source: hit.source ? String(hit.source) : "PEG Library",
-            description: hit.description ? String(hit.description) : null,
-          }))
-        );
+        // Return Algolia results directly first, then sync to DB in background
+        // so the user sees results immediately even if DB sync fails.
+        const algoliaResults = hits.map((hit) => ({
+          algoliaObjectId: String(hit.objectID ?? ""),
+          title: String(hit.title ?? ""),
+          type: (hit.type === "pdf" ? "pdf" : "link") as "pdf" | "link",
+          url: hit.url ? String(hit.url) : null,
+          source: hit.source ? String(hit.source) : "PEG Library",
+          description: hit.description ? String(hit.description) : null,
+        }));
 
-        return dbItems.map((item) => ({
-          ...item,
-          sourceName: item.description ?? "PEG Library",
+        // Try to sync to DB for downstream UUID lookups, but don't block on failure
+        let dbItems: Array<{ id: string; createdAt: Date | null; updatedAt: Date | null }> | null = null;
+        try {
+          dbItems = await ensureSystemLibraryItems(algoliaResults);
+        } catch (syncErr) {
+          console.warn("[library] Algolia→DB sync failed (results still returned):", syncErr);
+        }
+
+        return algoliaResults.map((item, idx) => ({
+          id: dbItems?.[idx]?.id ?? item.algoliaObjectId,
+          title: item.title,
+          source: "system_library" as const,
+          sourceName: item.source,
+          description: item.description,
+          type: item.type,
+          url: item.url,
+          algoliaObjectId: item.algoliaObjectId,
           storagePath: null,
           isActive: true,
-          createdAt: item.createdAt ?? new Date(),
-          updatedAt: item.updatedAt ?? new Date(),
+          tenantId: null,
+          createdAt: dbItems?.[idx]?.createdAt ?? new Date(),
+          updatedAt: dbItems?.[idx]?.updatedAt ?? new Date(),
         }));
       }
     } catch (err) {
-      console.warn("[library] Algolia search failed, falling back to Postgres:", err);
+      console.error("[library] Algolia search failed:", err);
     }
+  }
+
+  // When Algolia isn't configured, use mock data for development
+  if (!hasRealAlgolia) {
+    const { searchSystemLibrary } = await import("@/lib/algolia");
+    const result = await searchSystemLibrary(query, { hitsPerPage: 50 });
+    return result.hits.map((hit) => ({
+      id: hit.objectID,
+      title: hit.title,
+      source: "system_library" as const,
+      sourceName: hit.source,
+      description: hit.description,
+      type: "link" as const,
+      url: hit.url,
+      storagePath: null,
+      isActive: true,
+      tenantId: null,
+      algoliaObjectId: hit.objectID,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
   }
 
   // Fallback: search system_library content in Postgres
