@@ -120,7 +120,7 @@ export default function LibraryPage() {
     : null;
   const isViewingFavorites = activeFolderType === "favorites";
 
-  // Filter org content - includes uploads + favorited system items for "My Materials"
+  // Filter org content — only uploads and added links
   const filteredOrgContent = useMemo(() => {
     let items = orgContent;
 
@@ -150,29 +150,6 @@ export default function LibraryPage() {
       isFavorite: favoriteIds.has(item.id),
       createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : undefined,
     }));
-
-    // When viewing My Materials (no specific folder), also include favorited system library items
-    if (!activeFolder) {
-      const orgIds = new Set(mapped.map((m) => m.id));
-      const favSystemItems = favoritedContent
-        .filter((f) => f.source === "system_library" && !orgIds.has(f.id))
-        .filter((f) => {
-          if (!searchQuery) return true;
-          const q = searchQuery.toLowerCase();
-          return f.title.toLowerCase().includes(q);
-        })
-        .map((f) => ({
-          id: f.algoliaObjectId ?? f.id,
-          title: f.title,
-          source: "PEG Library",
-          type: f.type as "pdf" | "link",
-          url: f.url ?? undefined,
-          isFavorite: true,
-          createdAt: f.createdAt ? new Date(f.createdAt).toISOString() : undefined,
-          algoliaObjectId: f.algoliaObjectId ?? undefined,
-        }));
-      return [...mapped, ...favSystemItems];
-    }
 
     // When viewing Favorites folder, also include favorited system library items
     if (isViewingFavorites) {
