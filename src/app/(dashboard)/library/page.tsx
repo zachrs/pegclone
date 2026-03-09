@@ -76,6 +76,7 @@ export default function LibraryPage() {
             name: f.name,
             type: f.type as "personal" | "team" | "favorites",
             ownerId: f.ownerId,
+            shareCount: (f as { shareCount?: number }).shareCount ?? 0,
           })),
         });
       })
