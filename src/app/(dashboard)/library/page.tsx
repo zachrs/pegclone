@@ -112,7 +112,7 @@ export default function LibraryPage() {
         setFolderItemIds(new Set(items.map((i) => i.contentItemId)));
       })
       .catch(() => {});
-  }, [activeFolder]);
+  }, [activeFolder, contentVersion]);
 
   // Determine if active folder is the favorites folder (by type, not hardcoded ID)
   const activeFolderType = activeFolder

@@ -509,6 +509,7 @@ function FolderButton({ folder, isActive, onClick, draggable = false, shared = f
     try {
       const item = JSON.parse(raw) as { id: string; title: string };
       await addToFolder(folder.id, item.id);
+      useLibraryStore.getState().bumpContentVersion();
       toast.success(`Added "${item.title}" to ${folder.name}`);
     } catch {
       toast.error("Failed to add item to folder");
