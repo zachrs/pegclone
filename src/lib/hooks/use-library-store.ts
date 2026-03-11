@@ -79,18 +79,27 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   },
 
   toggleFavorite: (id, meta) => {
-    // Optimistic update
-    set((state) => {
-      const newFavorites = new Set(state.favorites);
-      if (newFavorites.has(id)) {
-        newFavorites.delete(id);
+    // Optimistic update — track both id and algoliaObjectId so system
+    // library items stay marked as favorited even if the resolved DB id
+    // differs from the Algolia object id returned by search.
+    const toggleSet = (favorites: Set<string>, adding: boolean) => {
+      const next = new Set(favorites);
+      if (adding) {
+        next.add(id);
+        if (meta?.algoliaObjectId && meta.algoliaObjectId !== id) next.add(meta.algoliaObjectId);
       } else {
-        newFavorites.add(id);
+        next.delete(id);
+        if (meta?.algoliaObjectId) next.delete(meta.algoliaObjectId);
       }
+      return next;
+    };
+
+    set((state) => {
+      const removing = state.favorites.has(id) || (meta?.algoliaObjectId ? state.favorites.has(meta.algoliaObjectId) : false);
       return {
-        favorites: newFavorites,
+        favorites: toggleSet(state.favorites, !removing),
         orgContent: state.orgContent.map((c) =>
-          c.id === id ? { ...c, isFavorite: !c.isFavorite } : c
+          c.id === id ? { ...c, isFavorite: !removing } : c
         ),
       };
     });
@@ -98,16 +107,11 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     toggleFavoriteAction(id, meta).catch(() => {
       // Rollback on failure
       set((state) => {
-        const newFavorites = new Set(state.favorites);
-        if (newFavorites.has(id)) {
-          newFavorites.delete(id);
-        } else {
-          newFavorites.add(id);
-        }
+        const isFav = state.favorites.has(id) || (meta?.algoliaObjectId ? state.favorites.has(meta.algoliaObjectId) : false);
         return {
-          favorites: newFavorites,
+          favorites: toggleSet(state.favorites, !isFav),
           orgContent: state.orgContent.map((c) =>
-            c.id === id ? { ...c, isFavorite: !c.isFavorite } : c
+            c.id === id ? { ...c, isFavorite: !isFav } : c
           ),
         };
       });

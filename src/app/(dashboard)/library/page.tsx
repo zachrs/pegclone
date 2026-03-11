@@ -178,16 +178,19 @@ export default function LibraryPage() {
   }, [orgContent, activeFolder, searchQuery, folderItemIds, favoriteIds, favoritedContent, orgName, isViewingFavorites]);
 
   const filteredSystemContent = useMemo(() => {
-    return systemContent.map((item) => ({
-      id: item.id,
-      title: item.title,
-      source: (item as { sourceName?: string }).sourceName ?? "PEG Library",
-      type: item.type as "pdf" | "link",
-      url: item.url ?? undefined,
-      isFavorite: favoriteIds.has(item.id),
-      createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : undefined,
-      algoliaObjectId: (item as { algoliaObjectId?: string }).algoliaObjectId,
-    }));
+    return systemContent.map((item) => {
+      const algoliaObjectId = (item as { algoliaObjectId?: string }).algoliaObjectId;
+      return {
+        id: item.id,
+        title: item.title,
+        source: (item as { sourceName?: string }).sourceName ?? "PEG Library",
+        type: item.type as "pdf" | "link",
+        url: item.url ?? undefined,
+        isFavorite: favoriteIds.has(item.id) || (algoliaObjectId ? favoriteIds.has(algoliaObjectId) : false),
+        createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : undefined,
+        algoliaObjectId,
+      };
+    });
   }, [systemContent, favoriteIds]);
 
   // Get active folder name for display
