@@ -57,8 +57,20 @@ export function FolderSidebar() {
   const handleCreateFolder = async () => {
     if (newFolderName.trim()) {
       try {
-        await createFolder(newFolderName.trim(), "personal");
-        useLibraryStore.getState().addFolder(newFolderName.trim(), "personal");
+        const created = await createFolder(newFolderName.trim(), "personal");
+        if (created) {
+          useLibraryStore.setState((state) => ({
+            folders: [
+              ...state.folders,
+              {
+                id: created.id,
+                name: created.name,
+                type: created.type as "personal" | "team" | "favorites",
+                ownerId: created.ownerId ?? undefined,
+              },
+            ],
+          }));
+        }
         setNewFolderName("");
         setDialogOpen(false);
       } catch {
@@ -507,8 +519,11 @@ function FolderButton({ folder, isActive, onClick, draggable = false, shared = f
     const raw = e.dataTransfer.getData("application/x-content-item");
     if (!raw) return;
     try {
-      const item = JSON.parse(raw) as { id: string; title: string };
-      await addToFolder(folder.id, item.id);
+      const item = JSON.parse(raw) as { id: string; title: string; type: "pdf" | "link"; url?: string; algoliaObjectId?: string };
+      const meta = item.algoliaObjectId
+        ? { title: item.title, type: item.type, url: item.url, algoliaObjectId: item.algoliaObjectId }
+        : undefined;
+      await addToFolder(folder.id, item.id, meta);
       useLibraryStore.getState().bumpContentVersion();
       toast.success(`Added "${item.title}" to ${folder.name}`);
     } catch {
