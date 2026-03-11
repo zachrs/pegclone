@@ -10,7 +10,9 @@ function createDb() {
   if (!connectionString) {
     throw new Error("DATABASE_URL or POSTGRES_URL environment variable is not set");
   }
-  const queryClient = postgres(connectionString);
+  const queryClient = postgres(connectionString, {
+    prepare: false,
+  });
   return drizzle(queryClient, {
     schema: { ...schema, ...relations },
   });
