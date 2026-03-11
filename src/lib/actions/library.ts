@@ -293,8 +293,7 @@ export async function addOrgContent(params: {
     return { success: true, id: item.id };
   } catch (err) {
     console.error("[library] addOrgContent failed:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { success: false, error: message };
+    return { success: false, error: "Failed to save content. Please try again." };
   }
 }
 

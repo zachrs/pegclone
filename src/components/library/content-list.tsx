@@ -73,6 +73,11 @@ export function ContentList({ items, emptyMessage }: ContentListProps) {
             return (
               <TableRow
                 key={item.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("application/x-content-item", JSON.stringify({ id: item.id, title: item.title, type: item.type, url: item.url, algoliaObjectId: item.algoliaObjectId }));
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
                 onClick={() => toggleItem(cartItem)}
                 className={cn(
                   "cursor-pointer transition-colors hover:bg-muted/40",

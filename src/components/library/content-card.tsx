@@ -37,8 +37,15 @@ export function ContentCard({
   const isSelected = hasItem(id);
   const cartItem: CartItem = { id, title, source, type };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData("application/x-content-item", JSON.stringify({ id, title, type, url, algoliaObjectId }));
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
   return (
     <div
+      draggable
+      onDragStart={handleDragStart}
       onClick={() => toggleItem(cartItem)}
       className={cn(
         "group relative flex h-[160px] cursor-pointer flex-col overflow-hidden rounded-xl border bg-card shadow-md card-hover hover:shadow-lg hover:border-primary/20",

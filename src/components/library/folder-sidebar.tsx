@@ -18,6 +18,7 @@ import {
   createFolder,
   renameFolder as renameFolderAction,
   deleteFolder as deleteFolderAction,
+  addToFolder,
   getShareableUsers,
   getFolderShares,
   shareFolderWithUsers,
@@ -464,6 +465,8 @@ function FolderButton({ folder, isActive, onClick, draggable = false, shared = f
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [dropOver, setDropOver] = useState(false);
+  const dropCounterRef = useRef(0);
   const { data: session } = useSession();
 
   const myUploads = isMyUploadsFolder(folder);
@@ -473,6 +476,44 @@ function FolderButton({ folder, isActive, onClick, draggable = false, shared = f
   const canRename = isOwner && !myUploads && folder.type !== "favorites";
   const canDelete = (isOwner || isAdmin) && !myUploads && folder.type !== "favorites";
   const canShare = isAdmin && !myUploads && folder.type !== "favorites";
+
+  const handleContentDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes("application/x-content-item")) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  }, []);
+
+  const handleContentDragEnter = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes("application/x-content-item")) {
+      e.preventDefault();
+      dropCounterRef.current++;
+      setDropOver(true);
+    }
+  }, []);
+
+  const handleContentDragLeave = useCallback(() => {
+    dropCounterRef.current--;
+    if (dropCounterRef.current <= 0) {
+      dropCounterRef.current = 0;
+      setDropOver(false);
+    }
+  }, []);
+
+  const handleContentDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    dropCounterRef.current = 0;
+    setDropOver(false);
+    const raw = e.dataTransfer.getData("application/x-content-item");
+    if (!raw) return;
+    try {
+      const item = JSON.parse(raw) as { id: string; title: string };
+      await addToFolder(folder.id, item.id);
+      toast.success(`Added "${item.title}" to ${folder.name}`);
+    } catch {
+      toast.error("Failed to add item to folder");
+    }
+  }, [folder.id, folder.name]);
 
   const handleRename = async () => {
     if (editName.trim() && editName !== folder.name) {
@@ -518,7 +559,16 @@ function FolderButton({ folder, isActive, onClick, draggable = false, shared = f
   }
 
   return (
-    <div className="group relative flex items-center">
+    <div
+      className={cn(
+        "group relative flex items-center rounded-lg transition-colors",
+        dropOver && "ring-2 ring-primary bg-primary/10"
+      )}
+      onDragOver={handleContentDragOver}
+      onDragEnter={handleContentDragEnter}
+      onDragLeave={handleContentDragLeave}
+      onDrop={handleContentDrop}
+    >
       {draggable && (
         <div className="absolute left-0 hidden cursor-grab items-center text-muted-foreground/50 group-hover:flex" aria-hidden="true">
           <GripVertical className="h-3 w-3" />
