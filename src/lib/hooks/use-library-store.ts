@@ -104,7 +104,8 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       };
     });
     // Persist to DB (fire-and-forget with rollback on error)
-    toggleFavoriteAction(id, meta).catch(() => {
+    toggleFavoriteAction(id, meta).catch((err) => {
+      console.error("[library] toggleFavorite failed:", err);
       // Rollback on failure
       set((state) => {
         const isFav = state.favorites.has(id) || (meta?.algoliaObjectId ? state.favorites.has(meta.algoliaObjectId) : false);

@@ -193,21 +193,36 @@ async function ensureSystemLibraryItems(
         result.push(dbRow);
       }
     } else {
-      // Create new row
-      const [created] = await db
-        .insert(contentItems)
-        .values({
-          tenantId: null,
-          algoliaObjectId: item.algoliaObjectId,
-          source: "system_library",
-          title: item.title,
-          description: item.description,
-          type: item.type,
-          url: item.url,
-          isActive: true,
-        })
-        .returning();
-      if (created) result.push(created);
+      // Create new row (handle race conditions with concurrent inserts)
+      try {
+        const [created] = await db
+          .insert(contentItems)
+          .values({
+            tenantId: null,
+            algoliaObjectId: item.algoliaObjectId,
+            source: "system_library",
+            title: item.title,
+            description: item.description,
+            type: item.type,
+            url: item.url,
+            isActive: true,
+          })
+          .returning();
+        if (created) result.push(created);
+      } catch {
+        // Race condition: another request created this item concurrently
+        const [fallback] = await db
+          .select()
+          .from(contentItems)
+          .where(
+            and(
+              eq(contentItems.algoliaObjectId, item.algoliaObjectId),
+              isNull(contentItems.tenantId)
+            )
+          )
+          .limit(1);
+        if (fallback) result.push(fallback);
+      }
     }
   }
 
@@ -663,19 +678,34 @@ export async function toggleFavorite(
     if (existing) {
       resolvedId = existing.id;
     } else {
-      const [created] = await db
-        .insert(contentItems)
-        .values({
-          tenantId: null,
-          algoliaObjectId: itemMeta.algoliaObjectId,
-          source: "system_library",
-          title: itemMeta.title,
-          type: itemMeta.type,
-          url: itemMeta.url ?? null,
-          isActive: true,
-        })
-        .returning();
-      resolvedId = created!.id;
+      try {
+        const [created] = await db
+          .insert(contentItems)
+          .values({
+            tenantId: null,
+            algoliaObjectId: itemMeta.algoliaObjectId,
+            source: "system_library",
+            title: itemMeta.title,
+            type: itemMeta.type,
+            url: itemMeta.url ?? null,
+            isActive: true,
+          })
+          .returning();
+        resolvedId = created!.id;
+      } catch {
+        // Race condition: item was created concurrently, fetch it
+        const [fallback] = await db
+          .select({ id: contentItems.id })
+          .from(contentItems)
+          .where(
+            and(
+              eq(contentItems.algoliaObjectId, itemMeta.algoliaObjectId),
+              isNull(contentItems.tenantId)
+            )
+          )
+          .limit(1);
+        if (fallback) resolvedId = fallback.id;
+      }
     }
   }
 
@@ -828,15 +858,53 @@ export async function getFavoritedContent() {
     );
 }
 
-export async function addToFolder(folderId: string, contentItemId: string) {
+export async function addToFolder(
+  folderId: string,
+  contentItemId: string,
+  itemMeta?: { title: string; type: "pdf" | "link"; url?: string; algoliaObjectId?: string }
+) {
   const session = await requireSession();
+
+  let resolvedId = contentItemId;
+
+  // If this is an Algolia/system library item, ensure it exists in content_items
+  if (itemMeta?.algoliaObjectId) {
+    const [existing] = await db
+      .select({ id: contentItems.id })
+      .from(contentItems)
+      .where(
+        and(
+          eq(contentItems.algoliaObjectId, itemMeta.algoliaObjectId),
+          isNull(contentItems.tenantId)
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      resolvedId = existing.id;
+    } else {
+      const [created] = await db
+        .insert(contentItems)
+        .values({
+          tenantId: null,
+          algoliaObjectId: itemMeta.algoliaObjectId,
+          source: "system_library",
+          title: itemMeta.title,
+          type: itemMeta.type,
+          url: itemMeta.url ?? null,
+          isActive: true,
+        })
+        .returning();
+      resolvedId = created!.id;
+    }
+  }
 
   await db
     .insert(folderItems)
     .values({
       tenantId: session.user.tenantId,
       folderId,
-      contentItemId,
+      contentItemId: resolvedId,
       addedBy: session.user.id,
       order: 0,
     })

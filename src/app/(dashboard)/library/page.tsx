@@ -127,7 +127,7 @@ export default function LibraryPage() {
     // Filter by folder
     if (isViewingFavorites) {
       items = items.filter((item) => favoriteIds.has(item.id));
-    } else if (activeFolder && folderItemIds.size > 0) {
+    } else if (activeFolder) {
       items = items.filter((item) => folderItemIds.has(item.id));
     }
 
